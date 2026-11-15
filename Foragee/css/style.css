@@ -22,6 +22,7 @@ html, body {
   background: #131d18;
   user-select: none;
   -webkit-user-select: none;
+  overscroll-behavior: none;
   color: var(--cream);
   font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -730,6 +731,118 @@ button.sell-btn:hover { background: rgba(255, 207, 107, 0.24); }
 }
 
 .start-controls span { white-space: nowrap; }
+
+/* ---------- Touch controls ---------- */
+
+.touch-only { display: none; }
+
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.joystick {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  width: 126px;
+  height: 126px;
+  border-radius: 50%;
+  background: rgba(20, 31, 24, 0.6);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  touch-action: none;
+  display: grid;
+  place-items: center;
+}
+
+.joystick-ring {
+  position: absolute;
+  inset: 20px;
+  border-radius: 50%;
+  border: 1px dashed rgba(246, 240, 225, 0.25);
+}
+
+.joystick-knob {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.touch-actions {
+  position: absolute;
+  right: 18px;
+  bottom: 24px;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  appearance: none;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--cream);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.touch-btn .tb-icon { font-size: 21px; line-height: 1; }
+
+.touch-btn.gather {
+  width: 82px;
+  height: 82px;
+  background: linear-gradient(180deg, #ffd97f, #eeb64d);
+  color: #33260c;
+  border: none;
+}
+
+.touch-btn:active { transform: scale(0.95); }
+
+body.touch-mode .touch-only { display: inline; }
+body.touch-mode .start-controls .touch-only { white-space: normal; max-width: 250px; line-height: 1.5; }
+body.touch-mode .start-controls .kb { display: none; }
+body.touch-mode .hud-bottom { bottom: 152px; }
+body.touch-mode .hint { display: none; }
+body.touch-mode .prompt { bottom: 208px; }
+body.touch-mode .inventory-bar {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  width: 100%;
+  overflow-x: auto;
+  padding: 2px 4px 6px;
+  scrollbar-width: none;
+}
+body.touch-mode .inventory-bar::-webkit-scrollbar { display: none; }
+body.touch-mode .hud-btn kbd { display: none; }
+body.touch-mode .prompt-key { font-size: 15px; }
 
 /* ---------- Responsive ---------- */
 

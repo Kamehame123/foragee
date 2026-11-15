@@ -52,6 +52,23 @@
     <div class="hint">E / Space gather &nbsp;·&nbsp; F eat &nbsp;·&nbsp; C craft &nbsp;·&nbsp; I bag &nbsp;·&nbsp; Esc menu</div>
   </footer>
 
+  <div id="touchControls" class="touch-controls hidden">
+    <div class="joystick" id="joystick" aria-label="Movement stick">
+      <div class="joystick-ring"></div>
+      <div class="joystick-knob" id="joystickKnob"></div>
+    </div>
+    <div class="touch-actions">
+      <button class="touch-btn eat" id="touchEat" aria-label="Eat food">
+        <span class="tb-icon">🍓</span>
+        <span>Eat</span>
+      </button>
+      <button class="touch-btn gather" id="touchGather" aria-label="Gather">
+        <span class="tb-icon">🌿</span>
+        <span>Gather</span>
+      </button>
+    </div>
+  </div>
+
   <div id="prompt" class="prompt hidden"></div>
   <div id="toast" class="toast-stack" aria-live="polite"></div>
 
@@ -65,13 +82,14 @@
       <div id="startButtons" class="start-buttons"></div>
       <p id="startNote" class="start-note"></p>
       <div class="start-controls">
-        <span><kbd>WASD</kbd> move</span>
-        <span><kbd>Shift</kbd> sprint</span>
-        <span><kbd>E</kbd> gather</span>
-        <span><kbd>F</kbd> eat</span>
-        <span><kbd>C</kbd> craft</span>
-        <span><kbd>I</kbd> bag</span>
-        <span><kbd>Esc</kbd> menu</span>
+        <span class="kb"><kbd>WASD</kbd> move</span>
+        <span class="kb"><kbd>Shift</kbd> sprint</span>
+        <span class="kb"><kbd>E</kbd> gather</span>
+        <span class="kb"><kbd>F</kbd> eat</span>
+        <span class="kb"><kbd>C</kbd> craft</span>
+        <span class="kb"><kbd>I</kbd> bag</span>
+        <span class="kb"><kbd>Esc</kbd> menu</span>
+        <span class="touch-only">Drag the stick to move · hold 🌿 to gather · 🍓 to eat</span>
       </div>
     </div>
   </div>

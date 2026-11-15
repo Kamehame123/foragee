@@ -29,6 +29,8 @@ Progress is saved automatically to `localStorage` under `foragee-save-v1`.
 
 Click food chips in the bottom bar (or the Eat buttons in the bag) to eat a specific item.
 
+On a phone or tablet the game switches to a touch layout automatically: drag the stick in the bottom-left to move, hold **🌿 Gather** in the bottom-right to gather, and tap **🍓 Eat** to eat. Craft, Bag and Help stay in the top bar.
+
 ## The loop
 
 1. **Forage.** Hold `E` near trees, boulders, berry bushes, tall grass and mushroom patches. Gathering costs energy.
@@ -59,4 +61,12 @@ Tuning lives at the top of `js/game.js` (`DAY_LENGTH`, `BASE_CAPACITY`), in `js/
 
 - Characters, trees, rocks and the homestead are drawn procedurally with canvas paths, so there are no image files to manage.
 - Sound is synthesized with the Web Audio API and starts after your first click.
-- Designed for a keyboard and mouse. A touch layout is not included yet.
+- Touch controls appear automatically on coarse-pointer devices; the keyboard layout is unchanged on desktop.
+
+## Deploy
+
+The repository root includes a GitHub Actions workflow (`.github/workflows/pages.yml`) that publishes the `Foragee/` folder to GitHub Pages on every push to `main`.
+
+1. Push the repository to GitHub.
+2. In **Settings → Pages**, set **Source** to **GitHub Actions**.
+3. Open `https://<your-username>.github.io/<repo>/`.

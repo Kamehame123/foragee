@@ -30,6 +30,9 @@ class Game {
     this.sleepFade = 0;
     this.grassPattern = null;
     this.last = performance.now();
+    this.isTouch = this.detectTouch();
+    this.joystickPointer = null;
+    if (this.isTouch) document.body.classList.add('touch-mode');
 
     const saved = this.loadRaw();
     this.state = this.normalize(saved);
@@ -50,6 +53,7 @@ class Game {
     this.ui.showStart();
 
     this.bindInput();
+    this.setupTouch();
     requestAnimationFrame((ts) => this.loop(ts));
 
     window.addEventListener('beforeunload', () => this.save());
@@ -151,7 +155,12 @@ class Game {
     this.ui.hideStart();
     this.save();
     if (first) {
-      this.ui.toast('Hold E near a tree, rock, or bush to gather.', 'good');
+      this.ui.toast(
+        this.isTouch
+          ? 'Hold 🌿 near a tree, rock, or bush to gather.'
+          : 'Hold E near a tree, rock, or bush to gather.',
+        'good'
+      );
     }
   }
 
@@ -182,6 +191,16 @@ class Game {
   }
 
   /* ---------------- input ---------------- */
+
+  detectTouch() {
+    try {
+      const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      const noHover = window.matchMedia && window.matchMedia('(hover: none)').matches;
+      return !!(coarse || (noHover && navigator.maxTouchPoints > 0));
+    } catch (err) {
+      return 'ontouchstart' in window;
+    }
+  }
 
   bindInput() {
     const movement = {
@@ -271,9 +290,109 @@ class Game {
       this.keys = {};
       this.interactHeld = false;
       this.gatherNode = null;
+      if (this.resetTouchMove) this.resetTouchMove();
     });
 
     this.canvas.addEventListener('pointerdown', () => Sound.ensure());
+  }
+
+  setupTouch() {
+    const controls = document.getElementById('touchControls');
+    const stick = document.getElementById('joystick');
+    const knob = document.getElementById('joystickKnob');
+    const gatherBtn = document.getElementById('touchGather');
+    const eatBtn = document.getElementById('touchEat');
+    if (!controls || !stick || !knob || !gatherBtn || !eatBtn) return;
+    if (this.isTouch) controls.classList.remove('hidden');
+
+    const radius = 38;
+    const dead = 9;
+    let center = { x: 0, y: 0 };
+
+    const setAxis = (dx, dy) => {
+      this.keys.left = dx < -dead;
+      this.keys.right = dx > dead;
+      this.keys.up = dy < -dead;
+      this.keys.down = dy > dead;
+    };
+    const setKnob = (dx, dy) => {
+      knob.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+    };
+
+    const apply = (e) => {
+      if (e.pointerId !== this.joystickPointer) return;
+      let dx = e.clientX - center.x;
+      let dy = e.clientY - center.y;
+      const len = Math.hypot(dx, dy);
+      if (len > radius) {
+        dx = (dx / len) * radius;
+        dy = (dy / len) * radius;
+      }
+      setKnob(dx, dy);
+      setAxis(dx, dy);
+    };
+
+    const release = (e) => {
+      if (e.pointerId !== this.joystickPointer) return;
+      this.joystickPointer = null;
+      setKnob(0, 0);
+      setAxis(0, 0);
+    };
+
+    this.resetTouchMove = () => {
+      this.joystickPointer = null;
+      setKnob(0, 0);
+      setAxis(0, 0);
+    };
+
+    stick.addEventListener('pointerdown', (e) => {
+      if (this.joystickPointer !== null) return;
+      e.preventDefault();
+      Sound.ensure();
+      this.joystickPointer = e.pointerId;
+      try {
+        stick.setPointerCapture(e.pointerId);
+      } catch (err) {
+        /* older browsers */
+      }
+      const r = stick.getBoundingClientRect();
+      center = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      apply(e);
+    });
+    stick.addEventListener('pointermove', apply);
+    stick.addEventListener('pointerup', release);
+    stick.addEventListener('pointercancel', release);
+    stick.addEventListener('lostpointercapture', release);
+
+    const stopGather = () => {
+      this.interactHeld = false;
+      this.gatherNode = null;
+    };
+
+    gatherBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      Sound.ensure();
+      try {
+        gatherBtn.setPointerCapture(e.pointerId);
+      } catch (err) {
+        /* older browsers */
+      }
+      this.interactHeld = true;
+      this.tryInteract();
+    });
+    gatherBtn.addEventListener('pointerup', stopGather);
+    gatherBtn.addEventListener('pointercancel', stopGather);
+    gatherBtn.addEventListener('lostpointercapture', stopGather);
+
+    eatBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      Sound.ensure();
+      this.eat();
+    });
+
+    for (const el of [stick, gatherBtn, eatBtn]) {
+      el.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
   }
 
   /* ---------------- geometry helpers ---------------- */

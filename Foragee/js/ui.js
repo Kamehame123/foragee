@@ -188,7 +188,7 @@ class UI {
     }
     el.classList.remove('hidden');
     el.classList.toggle('muted', !!info.muted);
-    const key = info.muted ? '' : '<span class="prompt-key">E</span>';
+    const key = info.muted ? '' : `<span class="prompt-key">${this.game.isTouch ? '🌿' : 'E'}</span>`;
     el.innerHTML = `${key}${info.text}`;
   }
 
@@ -427,17 +427,29 @@ class UI {
           <p>Gathering costs energy. Eat with <kbd>F</kbd> or click a food in your bag. Sleep in the tent at the homestead to start a fresh day.</p>
           <p>Sell surplus to the trader and buy an axe, a pickaxe, and a hoe. Craft a campfire to cook and recharge quickly.</p>
           <p>Use the hoe on the three garden plots, plant seeds, and harvest berries a minute later.</p>
+          ${
+            this.game.isTouch
+              ? '<p><strong>On touch:</strong> drag the stick to move, hold 🌿 to gather, and tap 🍓 to eat.</p>'
+              : ''
+          }
         </div>
         <div class="help-block">
           <h3>Controls</h3>
-          <div class="key-row"><span>Move</span><span><kbd>WASD</kbd> / arrows</span></div>
-          <div class="key-row"><span>Sprint</span><span><kbd>Shift</kbd> (drains energy)</span></div>
-          <div class="key-row"><span>Gather / interact</span><span><kbd>E</kbd> or <kbd>Space</kbd></span></div>
-          <div class="key-row"><span>Eat best food</span><span><kbd>F</kbd></span></div>
-          <div class="key-row"><span>Crafting</span><span><kbd>C</kbd></span></div>
-          <div class="key-row"><span>Bag</span><span><kbd>I</kbd></span></div>
-          <div class="key-row"><span>Menu</span><span><kbd>Esc</kbd></span></div>
-          <div class="key-row"><span>Mute</span><span><kbd>M</kbd></span></div>
+          ${
+            this.game.isTouch
+              ? `<div class="key-row"><span>Move</span><span>Drag the stick</span></div>
+                 <div class="key-row"><span>Gather / interact</span><span>Hold 🌿</span></div>
+                 <div class="key-row"><span>Eat best food</span><span>Tap 🍓</span></div>
+                 <div class="key-row"><span>Crafting / Bag / Help</span><span>Top buttons</span></div>`
+              : `<div class="key-row"><span>Move</span><span><kbd>WASD</kbd> / arrows</span></div>
+                 <div class="key-row"><span>Sprint</span><span><kbd>Shift</kbd> (drains energy)</span></div>
+                 <div class="key-row"><span>Gather / interact</span><span><kbd>E</kbd> or <kbd>Space</kbd></span></div>
+                 <div class="key-row"><span>Eat best food</span><span><kbd>F</kbd></span></div>
+                 <div class="key-row"><span>Crafting</span><span><kbd>C</kbd></span></div>
+                 <div class="key-row"><span>Bag</span><span><kbd>I</kbd></span></div>
+                 <div class="key-row"><span>Menu</span><span><kbd>Esc</kbd></span></div>
+                 <div class="key-row"><span>Mute</span><span><kbd>M</kbd></span></div>`
+          }
         </div>
         <div class="help-block">
           <h3>Tips</h3>
@@ -558,7 +570,9 @@ class UI {
     this.el.startButtons.innerHTML = '';
     this.el.startNote.textContent = hasSave
       ? 'Your homestead is waiting where you left it.'
-      : 'Tip: hold E near a tree, rock, or bush to gather.';
+      : this.game.isTouch
+        ? 'Tip: drag the stick to move, then hold 🌿 near a tree, rock, or bush.'
+        : 'Tip: hold E near a tree, rock, or bush to gather.';
 
     const play = document.createElement('button');
     play.className = 'primary';
