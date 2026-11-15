@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Foragee — a cozy foraging game</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="game" aria-label="Foragee game world"></canvas>
+  <div class="vignette"></div>
+
+  <header class="hud-top">
+    <div class="hud-card clock-card">
+      <div class="clock">
+        <span id="timeIcon" class="time-icon">☀️</span>
+        <div>
+          <div id="dayLabel" class="day-label">Day 1</div>
+          <div id="timeLabel" class="time-label">08:00</div>
+        </div>
+      </div>
+      <div class="coin-chip" title="Coins">
+        <span class="coin-dot"></span>
+        <span id="coinCount">0</span>
+      </div>
+    </div>
+
+    <div class="hud-card status-card">
+      <div class="energy-head">
+        <span>Energy</span>
+        <span id="energyText">100 / 100</span>
+      </div>
+      <div class="meter"><i id="energyFill"></i></div>
+      <div class="hud-buttons">
+        <button class="hud-btn" id="btnCraft" title="Open crafting">Craft <kbd>C</kbd></button>
+        <button class="hud-btn" id="btnBag" title="Open bag">Bag <kbd>I</kbd></button>
+        <button class="hud-btn icon" id="btnMute" title="Toggle sound" aria-label="Toggle sound">🔊</button>
+        <button class="hud-btn icon" id="btnHelp" title="Help" aria-label="Help">?</button>
+      </div>
+    </div>
+  </header>
+
+  <aside class="objectives" id="objectives" aria-label="Goals">
+    <div class="obj-title">Goals</div>
+    <ul id="objList"></ul>
+  </aside>
+
+  <footer class="hud-bottom">
+    <div class="inventory-bar" id="invBar"></div>
+    <div class="hint">E / Space gather &nbsp;·&nbsp; F eat &nbsp;·&nbsp; C craft &nbsp;·&nbsp; I bag &nbsp;·&nbsp; Esc menu</div>
+  </footer>
+
+  <div id="prompt" class="prompt hidden"></div>
+  <div id="toast" class="toast-stack" aria-live="polite"></div>
+
+  <div id="panelRoot" class="panel-root hidden"></div>
+
+  <div id="startScreen" class="start-screen">
+    <div class="start-card">
+      <div class="start-logo">🍃</div>
+      <h1>Foragee</h1>
+      <p class="start-tag">A cozy little foraging game.<br />Gather, craft, farm, and make the homestead yours.</p>
+      <div id="startButtons" class="start-buttons"></div>
+      <p id="startNote" class="start-note"></p>
+      <div class="start-controls">
+        <span><kbd>WASD</kbd> move</span>
+        <span><kbd>Shift</kbd> sprint</span>
+        <span><kbd>E</kbd> gather</span>
+        <span><kbd>F</kbd> eat</span>
+        <span><kbd>C</kbd> craft</span>
+        <span><kbd>I</kbd> bag</span>
+        <span><kbd>Esc</kbd> menu</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js" defer></script>
+<script src="js/items.js" defer></script>
+<script src="js/world.js" defer></script>
+<script src="js/player.js" defer></script>
+<script src="js/ui.js" defer></script>
+<script src="js/game.js" defer></script>
+</body>
+</html>
