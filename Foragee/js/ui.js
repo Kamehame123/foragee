@@ -17,6 +17,7 @@ class UI {
       dayLabel: $('dayLabel'),
       timeLabel: $('timeLabel'),
       timeIcon: $('timeIcon'),
+      weatherIcon: $('weatherIcon'),
       invBar: $('invBar'),
       prompt: $('prompt'),
       toast: $('toast'),
@@ -139,6 +140,11 @@ class UI {
     this.el.dayLabel.textContent = `Day ${s.day}`;
     this.el.timeLabel.textContent = formatTime(s.time);
     this.el.timeIcon.textContent = g.timeIcon();
+    if (this.el.weatherIcon) {
+      const w = WEATHERS[g.weatherType()];
+      this.el.weatherIcon.textContent = w ? w.icon : '☀';
+      this.el.weatherIcon.title = w ? w.name : 'Clear';
+    }
 
     this.updatePrompt();
     this.updateObjectives();
@@ -268,6 +274,7 @@ class UI {
 
   renderCraft() {
     const s = this.game.state;
+    const needNames = { campfire: ['🔥', 'campfire'], torch: ['🕯️', 'torch'] };
     const rows = RECIPES.map((r) => {
       const owned = r.once && s.upgrades[r.once];
       const needsOk = !r.needs || s.upgrades[r.needs];
@@ -276,12 +283,16 @@ class UI {
       const can = !owned && needsOk && affordable && space;
 
       let label = r.verb || 'Craft';
-      if (owned) label = r.once === 'campfire' ? 'Built' : 'Owned';
-      else if (!needsOk) label = 'Needs campfire';
+      if (owned) label = r.once === 'campfire' || r.once === 'hearth' ? 'Built' : 'Owned';
+      else if (!needsOk) label = `Needs ${(needNames[r.needs] || [, r.needs])[1]}`;
       else if (!space) label = 'Bag full';
 
       const cls = owned || !needsOk ? 'ghost' : 'primary';
-      const needsTag = r.needs && !s.upgrades[r.needs] ? '<span class="cost-item need">🔥 campfire</span>' : '';
+      const needMeta = needNames[r.needs] || ['', r.needs];
+      const needsTag =
+        r.needs && !s.upgrades[r.needs]
+          ? `<span class="cost-item need">${needMeta[0]} ${needMeta[1]}</span>`
+          : '';
 
       return `<div class="recipe${owned ? ' locked' : ''}">
         <div class="recipe-icon">${r.icon}</div>
@@ -325,16 +336,19 @@ class UI {
       .join('');
 
     const gear = [];
-    const toolNames = { axe: ['🪓', 'Axe'], pickaxe: ['⛏️', 'Pickaxe'], hoe: ['⚒️', 'Hoe'] };
-    for (const [id, [icon, name]] of Object.entries(toolNames)) {
+    const toolNames = TOOL_META;
+    for (const [id, meta] of Object.entries(toolNames)) {
       if (s.tools[id]) {
-        gear.push(`<div class="bag-row"><span class="bag-icon">${icon}</span><span class="bag-name">${name}</span><span class="bag-tag">equipped</span></div>`);
+        gear.push(`<div class="bag-row"><span class="bag-icon">${meta.icon}</span><span class="bag-name">${meta.name}</span><span class="bag-tag">equipped</span></div>`);
       }
     }
     const upNames = {
       campfire: ['🔥', 'Campfire'],
+      hearth: ['🗿', 'Stone Hearth'],
       backpack: ['🎒', 'Woven Backpack'],
+      basket: ['🧺', 'Gathering Basket'],
       torch: ['🕯️', 'Hand Torch'],
+      lantern: ['🏮', 'Crystal Lantern'],
       boots: ['🥾', 'Trail Boots'],
     };
     for (const [id, [icon, name]] of Object.entries(upNames)) {
@@ -368,16 +382,21 @@ class UI {
 
     const buyRows = SHOP_ITEMS.map((item) => {
       const owned = item.kind === 'tool' && !!s.tools[item.id];
-      const can = !owned && s.coins >= item.price;
+      const needsTool = item.requires && !s.tools[item.requires];
+      const can = !owned && !needsTool && s.coins >= item.price;
       const count = item.kind === 'item' ? s.inv[item.id] || 0 : 0;
       const right = owned
         ? '<span class="shop-price owned-tag">Owned</span>'
         : `<span class="shop-price">${item.price}🪙</span>`;
+      const needNote = needsTool
+        ? `<div class="shop-desc">Requires ${TOOL_META[item.requires] ? TOOL_META[item.requires].name : item.requires}.</div>`
+        : '';
       return `<div class="shop-row">
         <span class="shop-icon">${item.icon}</span>
         <div class="shop-main">
           <div class="shop-name">${item.name}${count ? ` <span class="shop-count">×${count}</span>` : ''}</div>
           <div class="shop-desc">${item.desc}</div>
+          ${needNote}
         </div>
         ${right}
         <button class="${owned ? 'ghost' : 'primary'}" data-action="buy" data-id="${item.id}" ${can ? '' : 'disabled'}>${owned ? 'Owned' : 'Buy'}</button>
@@ -426,7 +445,8 @@ class UI {
           <p>Walk up to trees, rocks, bushes and grass. Hold <kbd>E</kbd> (or <kbd>Space</kbd>) to gather what they hold.</p>
           <p>Gathering costs energy. Eat with <kbd>F</kbd> or click a food in your bag. Sleep in the tent at the homestead to start a fresh day.</p>
           <p>Sell surplus to the trader and buy an axe, a pickaxe, and a hoe. Craft a campfire to cook and recharge quickly.</p>
-          <p>Use the hoe on the three garden plots, plant seeds, and harvest berries a minute later.</p>
+          <p>Use the hoe on the four garden plots, plant seeds, and harvest berries a minute later. Hold <kbd>Shift</kbd> while planting to sow pumpkin seeds instead.</p>
+          <p>Follow the path west to the pond to fish, and look for apple trees, beehives and clay banks around the forest.</p>
           ${
             this.game.isTouch
               ? '<p><strong>On touch:</strong> drag the stick to move, hold 🌿 to gather, and tap 🍓 to eat.</p>'
@@ -440,10 +460,12 @@ class UI {
               ? `<div class="key-row"><span>Move</span><span>Drag the stick</span></div>
                  <div class="key-row"><span>Gather / interact</span><span>Hold 🌿</span></div>
                  <div class="key-row"><span>Eat best food</span><span>Tap 🍓</span></div>
+                 <div class="key-row"><span>Plant pumpkins</span><span>Only pumpkin seeds in bag</span></div>
                  <div class="key-row"><span>Crafting / Bag / Help</span><span>Top buttons</span></div>`
               : `<div class="key-row"><span>Move</span><span><kbd>WASD</kbd> / arrows</span></div>
                  <div class="key-row"><span>Sprint</span><span><kbd>Shift</kbd> (drains energy)</span></div>
                  <div class="key-row"><span>Gather / interact</span><span><kbd>E</kbd> or <kbd>Space</kbd></span></div>
+                 <div class="key-row"><span>Plant pumpkins</span><span><kbd>Shift</kbd> + interact</span></div>
                  <div class="key-row"><span>Eat best food</span><span><kbd>F</kbd></span></div>
                  <div class="key-row"><span>Crafting</span><span><kbd>C</kbd></span></div>
                  <div class="key-row"><span>Bag</span><span><kbd>I</kbd></span></div>

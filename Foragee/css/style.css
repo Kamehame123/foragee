@@ -107,6 +107,8 @@ kbd {
 
 .time-icon { font-size: 22px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
 
+.weather-icon { font-size: 15px; line-height: 1; opacity: 0.9; margin-left: 2px; }
+
 .day-label {
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -211,6 +213,9 @@ kbd {
   left: 16px;
   top: 96px;
   width: 236px;
+  max-height: min(48vh, 430px);
+  overflow-y: auto;
+  scrollbar-width: thin;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -325,7 +330,7 @@ kbd {
 
 .prompt {
   position: absolute;
-  bottom: 116px;
+  bottom: 140px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(18, 28, 22, 0.92);

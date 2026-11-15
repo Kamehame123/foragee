@@ -21,6 +21,7 @@ Progress is saved automatically to `localStorage` under `foragee-save-v1`.
 | Move | `WASD` or arrow keys |
 | Sprint | `Shift` (drains energy) |
 | Gather / interact | `E` or `Space` (hold to keep gathering) |
+| Plant pumpkin seeds | Hold `Shift` while planting |
 | Eat best food | `F` |
 | Crafting panel | `C` |
 | Bag | `I` |
@@ -33,12 +34,14 @@ On a phone or tablet the game switches to a touch layout automatically: drag the
 
 ## The loop
 
-1. **Forage.** Hold `E` near trees, boulders, berry bushes, tall grass and mushroom patches. Gathering costs energy.
-2. **Eat and rest.** Berries and mushrooms restore energy. The tent at the homestead sleeps until morning and refills your energy.
-3. **Trade.** The stall east of the campfire buys everything you gather and sells an axe, a pickaxe, a hoe, and berry seeds.
-4. **Craft.** A campfire unlocks cooking, a backpack adds 20 inventory space, a torch lights up the night, and trail boots make you faster.
-5. **Farm.** Till the three plots with the hoe, plant seeds, and harvest ripe berries about 45 seconds later.
+1. **Forage.** Hold `E` near trees, boulders, berry bushes, tall grass, mushroom patches and clay banks. Apple trees, beehives and herb patches are scattered around the forest, and the pond west of the homestead has fishing spots.
+2. **Eat and rest.** Berries, mushrooms, apples, honey and fish restore energy. The tent at the homestead sleeps until morning and refills your energy.
+3. **Trade.** The stall east of the campfire buys everything you gather and sells tools: axe, pickaxe, hoe, fishing rod and watering can, plus steel upgrades and seeds.
+4. **Craft.** A campfire unlocks cooking; a stone hearth widens the glow. A backpack and basket add inventory space, a torch or crystal lantern lights the night, and trail boots make you faster.
+5. **Farm.** Till the four plots with the hoe, plant seeds, and harvest ripe berries about 45 seconds later. Hold `Shift` while planting to sow slower, heartier pumpkins. A watering can speeds growth.
 6. **Settle in.** The goal list in the top-left pays out coins as you hit milestones. Earning 400 coins is the long-term target.
+
+Weather drifts between clear, cloudy, rain and fog. Rain helps crops grow; the HUD clock shows the current sky.
 
 ## Project layout
 
@@ -55,7 +58,7 @@ Foragee/
     └── game.js       Loop, state, saving, interactions, lighting
 ```
 
-Tuning lives at the top of `js/game.js` (`DAY_LENGTH`, `BASE_CAPACITY`), in `js/items.js` (yields, costs, prices, goals) and in `js/world.js` (`PLOT_GROW_TIME`).
+Tuning lives at the top of `js/game.js` (`DAY_LENGTH`, `BASE_CAPACITY`, `BASKET_BONUS`), in `js/items.js` (yields, costs, prices, crops, weather, goals) and in `js/world.js` (world layout and spawning).
 
 ## Notes
 
