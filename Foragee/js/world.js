@@ -42,6 +42,7 @@ class World {
     this.nodes = [];
     this.decor = [];
     this.ambient = [];
+    this.shore = [];
     this.butterflies = [];
     this.fireflies = [];
     this.birds = [];
@@ -52,6 +53,7 @@ class World {
 
     this.generatePatches();
     this.generateDecor();
+    this.generateShore();
     this.generateAmbient();
     this.generateButterflies();
     this.generateFireflies();
@@ -109,6 +111,7 @@ class World {
     this.nodes = [];
     this.decor = [];
     this.ambient = [];
+    this.shore = [];
     this.butterflies = [];
     this.fireflies = [];
     this.birds = [];
@@ -120,6 +123,7 @@ class World {
 
     this.generateIslandPatches();
     this.generateIslandDecor();
+    this.generateShore();
     this.generateAmbient();
     this.generateButterflies();
     this.generateFireflies();
@@ -294,6 +298,75 @@ class World {
         seed: this.rng.next() * 10,
         color: this.rng.pick(colors),
       });
+    }
+  }
+
+  /** Driftwood and shore rocks along the water's edge. */
+  generateShore() {
+    const rng = this.ambientRng;
+    if (this.island) {
+      for (let i = 0; i < 16; i++) {
+        const a = rng.next() * TAU;
+        const f = rng.range(1.01, 1.055);
+        this.shore.push({
+          x: this.center.x + Math.cos(a) * this.landRx * f,
+          y: this.center.y + Math.sin(a) * this.landRy * f,
+          type: rng.chance(0.55) ? 'rock' : 'wood',
+          r: rng.range(3.2, 7.5),
+          rot: rng.range(-0.7, 0.7),
+        });
+      }
+    } else if (this.pond) {
+      for (let i = 0; i < 12; i++) {
+        const a = rng.next() * TAU;
+        const f = rng.range(1.01, 1.09);
+        this.shore.push({
+          x: this.pond.x + Math.cos(a) * (this.pond.rx + 15) * f,
+          y: this.pond.y + Math.sin(a) * (this.pond.ry + 13) * f,
+          type: rng.chance(0.5) ? 'rock' : 'wood',
+          r: rng.range(3, 7),
+          rot: rng.range(-0.7, 0.7),
+        });
+      }
+    }
+  }
+
+  drawShore(ctx) {
+    if (!this.shore || !this.shore.length) return;
+    for (const d of this.shore) {
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      ctx.rotate(d.rot);
+
+      ctx.fillStyle = 'rgba(28, 44, 40, 0.2)';
+      ctx.beginPath();
+      ctx.ellipse(1, 2.4, d.r * 1.15, d.r * 0.7, 0, 0, TAU);
+      ctx.fill();
+
+      if (d.type === 'rock') {
+        ctx.fillStyle = '#9aa39a';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, d.r, d.r * 0.72, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(230, 238, 228, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(-d.r * 0.25, -d.r * 0.25, d.r * 0.5, d.r * 0.3, 0, 0, TAU);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = '#8d7355';
+        rr(ctx, -d.r * 1.6, -2.2, d.r * 3.2, 4.4, 2.2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(96, 74, 52, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(196, 170, 132, 0.5)';
+        ctx.beginPath();
+        ctx.moveTo(-d.r * 1.1, -0.8);
+        ctx.lineTo(d.r * 0.9, -0.4);
+        ctx.stroke();
+      }
+
+      ctx.restore();
     }
   }
 
@@ -847,6 +920,7 @@ class World {
     }
 
     this.drawPond(ctx, game.clock);
+    this.drawShore(ctx);
 
     const edge = 155;
     const grads = [
@@ -921,6 +995,7 @@ class World {
 
     if (this.pond) this.drawPond(ctx, t);
     ctx.restore();
+    this.drawShore(ctx);
 
     ctx.strokeStyle = 'rgba(238, 250, 250, 0.34)';
     ctx.lineWidth = 2.4;

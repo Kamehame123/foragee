@@ -1130,7 +1130,28 @@ class Game {
     }
 
     this.spawnBurst(node.x, node.y - 14, conf.particles, 14);
-    this.spawnSparkle(node.x, node.y - 24, 5);
+    const family =
+      node.type === 'pond'
+        ? '#b8e6ef'
+        : /berry|bush/.test(node.type)
+          ? '#ff9ec0'
+          : /rock|ore|crystal|clay/.test(node.type)
+            ? '#bfe6ff'
+            : /tree|stump/.test(node.type)
+              ? '#d9b98a'
+              : '#d6f5b0';
+    this.spawnSparkle(node.x, node.y - 24, 5, family);
+
+    // A lucky clean cut now and then yields one extra of the main harvest.
+    const main = conf.yields && conf.yields[0] ? conf.yields[0][0] : null;
+    if (main && Math.random() < 0.1) {
+      const bonus = this.addItem(main, 1);
+      if (bonus > 0) {
+        this.state.stats.gathered[main] = (this.state.stats.gathered[main] || 0) + bonus;
+        this.addText(node.x, node.y - 54, `Clean gather! +1 ${ITEMS[main].name}`, '#c9f5a8');
+      }
+    }
+
     this.questCheck();
   }
 
@@ -1259,7 +1280,7 @@ class Game {
     });
   }
 
-  spawnSparkle(x, y, count) {
+  spawnSparkle(x, y, count, color) {
     for (let i = 0; i < count; i++) {
       const life = 0.55 + Math.random() * 0.4;
       this.particles.push({
@@ -1270,7 +1291,7 @@ class Game {
         life,
         maxLife: life,
         size: 1.4 + Math.random() * 1.8,
-        color: Math.random() < 0.5 ? '#ffe9ab' : '#fff6d8',
+        color: color || (Math.random() < 0.5 ? '#ffe9ab' : '#fff6d8'),
         gravity: -12,
         rot: 0,
         spin: 0,

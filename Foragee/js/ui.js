@@ -9,6 +9,9 @@ class UI {
     this.acc = 0;
     this.resetTimer = null;
     this.plantPlot = null;
+    this.bagFilter = 'all';
+    this.craftGroup = 'all';
+    this.lastIsland = null;
 
     const $ = (id) => document.getElementById(id);
     this.el = {
@@ -150,6 +153,15 @@ class UI {
     this.updatePrompt();
     this.updateObjectives();
 
+    const curIsland = s.islands && s.islands.current;
+    if (g.started && curIsland && this.lastIsland && curIsland !== this.lastIsland) {
+      const conf = ISLANDS[curIsland];
+      if (conf) {
+        this.toast(`${conf.icon} ${conf.name} — ${conf.resources || conf.blurb}`, 'good');
+      }
+    }
+    if (curIsland) this.lastIsland = curIsland;
+
     const sig = ITEM_ORDER.map((id) => s.inv[id] || 0).join(',') + `|${g.capacity()}`;
     if (sig !== this.invSig) {
       this.invSig = sig;
@@ -280,7 +292,12 @@ class UI {
   renderCraft() {
     const s = this.game.state;
     const needNames = { campfire: ['🔥', 'campfire'], torch: ['🕯️', 'torch'] };
-    const rows = RECIPES.map((r) => {
+    const groups = [['all', 'All'], ['gear', 'Gear'], ['cooking', 'Cooking'], ['homestead', 'Homestead']];
+    const tabs = groups
+      .map(([id, label]) => `<button class="${this.craftGroup === id ? 'primary' : 'ghost'}" data-action="craftGroup" data-group="${id}">${label}</button>`)
+      .join('');
+    const visible = RECIPES.filter((r) => this.craftGroup === 'all' || r.group === this.craftGroup);
+    const rows = visible.map((r) => {
       const owned = r.once && s.upgrades[r.once];
       const needsOk = !r.needs || s.upgrades[r.needs];
       const affordable = Object.entries(r.cost).every(([id, n]) => (s.inv[id] || 0) >= n);
@@ -315,7 +332,8 @@ class UI {
     this.setPanel(
       'Crafting',
       'Turn foraged goods into tools, warmth, and better meals.',
-      `<div class="recipe-grid">${rows}</div>`
+      `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${tabs}</div>
+       <div class="recipe-grid">${rows || '<p class="panel-sub">Nothing in this group yet.</p>'}</div>`
     );
   }
 
@@ -355,12 +373,28 @@ class UI {
     );
   }
 
-  renderBag() {    const g = this.game;
+  renderBag() {
+    const g = this.game;
     const s = g.state;
     const cap = g.capacity();
     const total = g.itemTotal();
 
-    const rows = ITEM_ORDER.filter((id) => (s.inv[id] || 0) > 0)
+    const seedIds = new Set(Object.values(CROPS).map((c) => c.seed));
+    const filters = [['all', 'All'], ['food', 'Food'], ['materials', 'Materials'], ['seeds', 'Seeds'], ['tools', 'Tools']];
+    const filterBtns = filters
+      .map(([id, label]) => `<button class="${this.bagFilter === id ? 'primary' : 'ghost'}" data-action="bagFilter" data-filter="${id}">${label}</button>`)
+      .join('');
+
+    const visible = ITEM_ORDER.filter((id) => {
+      if ((s.inv[id] || 0) <= 0) return false;
+      if (this.bagFilter === 'food') return !!ITEMS[id].food;
+      if (this.bagFilter === 'seeds') return seedIds.has(id);
+      if (this.bagFilter === 'materials') return !ITEMS[id].food && !seedIds.has(id);
+      if (this.bagFilter === 'tools') return false;
+      return true;
+    });
+
+    const rows = visible
       .map((id) => {
         const item = ITEMS[id];
         const eat = item.food
@@ -407,7 +441,10 @@ class UI {
       'Your satchel, your gear, and a little record of the good life.',
       `<div class="cap-row"><span>Space used</span><span>${total} / ${cap}</span></div>
        <div class="cap-bar"><i style="width:${clamp((total / cap) * 100, 0, 100)}%"></i></div>
-       ${rows || '<p class="panel-sub">Your bag is empty. Go forage something!</p>'}
+       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px">${filterBtns}</div>
+       ${rows || (this.bagFilter === 'tools'
+         ? '<p class="panel-sub">Tools and upgrades are listed under Gear below.</p>'
+         : '<p class="panel-sub">Nothing in this category yet.</p>')}
        <h3 class="section-title" style="margin-top:18px">Gear</h3>
        ${gear.join('') || '<p class="panel-sub">No gear yet. Visit the trader by the homestead, or open the crafting panel.</p>'}
        <h3 class="section-title" style="margin-top:18px">Record</h3>
@@ -701,6 +738,14 @@ class UI {
         break;
       case 'craft':
         g.craft(btn.dataset.id);
+        this.renderPanel();
+        break;
+      case 'craftGroup':
+        this.craftGroup = btn.dataset.group || 'all';
+        this.renderPanel();
+        break;
+      case 'bagFilter':
+        this.bagFilter = btn.dataset.filter || 'all';
         this.renderPanel();
         break;
       case 'buy':

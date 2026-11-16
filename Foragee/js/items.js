@@ -88,6 +88,20 @@ const ITEMS = {
     desc: 'A hearty garden tuber. +14 energy raw.',
     food: 14,
   },
+  tomato: {
+    name: 'Tomato',
+    icon: '🍅',
+    sell: 7,
+    desc: 'Sun-ripened and sweet. +10 energy raw.',
+    food: 10,
+  },
+  onion: {
+    name: 'Onion',
+    icon: '🧅',
+    sell: 8,
+    desc: 'Sharp, sweet and hardy. +11 energy raw.',
+    food: 11,
+  },
   carrot: {
     name: 'Carrot',
     icon: '🥕',
@@ -176,6 +190,18 @@ const ITEMS = {
     icon: '🥔',
     sell: 6,
     desc: 'Plant in tilled soil. Slow, but filling.',
+  },
+  tomatoSeed: {
+    name: 'Tomato Seeds',
+    icon: '🍅',
+    sell: 6,
+    desc: 'Plant in tilled soil. Sun-loving vines.',
+  },
+  onionSeed: {
+    name: 'Onion Seeds',
+    icon: '🧅',
+    sell: 5,
+    desc: 'Plant in tilled soil. A quick, hardy crop.',
   },
   jam: {
     name: 'Berry Jam',
@@ -268,6 +294,20 @@ const ITEMS = {
     desc: 'A hearty, warming bowl. +55 energy.',
     food: 55,
   },
+  tomatoSoup: {
+    name: 'Tomato Soup',
+    icon: '🍅',
+    sell: 32,
+    desc: 'Bright and comforting. +46 energy.',
+    food: 46,
+  },
+  onionPie: {
+    name: 'Onion Pie',
+    icon: '🥧',
+    sell: 42,
+    desc: 'Sweet onions in a golden crust. +58 energy.',
+    food: 58,
+  },
   bait: {
     name: 'Fishing Bait',
     icon: '🪱',
@@ -278,10 +318,10 @@ const ITEMS = {
 
 const ITEM_ORDER = [
   'wood', 'stone', 'fiber', 'clay', 'reed',
-  'berry', 'mushroom', 'apple', 'carrot', 'corn', 'hazelnut', 'herb', 'honey', 'egg', 'fish', 'trout', 'pumpkin', 'strawberry', 'potato',
+  'berry', 'mushroom', 'apple', 'carrot', 'corn', 'hazelnut', 'herb', 'honey', 'egg', 'fish', 'trout', 'pumpkin', 'strawberry', 'potato', 'tomato', 'onion',
   'iron', 'crystal',
-  'seed', 'pumpkinSeed', 'carrotSeed', 'cornSeed', 'strawberrySeed', 'potatoSeed', 'bait',
-  'jam', 'stew', 'tea', 'pie', 'grilledFish', 'pumpkinSoup', 'cornbread', 'carrotCake', 'nutRoast', 'fishStew', 'grilledTrout', 'strawberryJam', 'potatoStew',
+  'seed', 'pumpkinSeed', 'carrotSeed', 'cornSeed', 'strawberrySeed', 'potatoSeed', 'tomatoSeed', 'onionSeed', 'bait',
+  'jam', 'stew', 'tea', 'pie', 'grilledFish', 'pumpkinSoup', 'cornbread', 'carrotCake', 'nutRoast', 'fishStew', 'grilledTrout', 'strawberryJam', 'potatoStew', 'tomatoSoup', 'onionPie',
 ];
 
 const TOOL_META = {
@@ -361,6 +401,28 @@ const CROPS = {
     max: 3,
     seedChance: 0.4,
     color: '#c9975b',
+  },
+  tomato: {
+    name: 'Tomatoes',
+    icon: '🍅',
+    seed: 'tomatoSeed',
+    grow: 48,
+    yield: 'tomato',
+    min: 2,
+    max: 3,
+    seedChance: 0.4,
+    color: '#d84f3b',
+  },
+  onion: {
+    name: 'Onions',
+    icon: '🧅',
+    seed: 'onionSeed',
+    grow: 40,
+    yield: 'onion',
+    min: 2,
+    max: 4,
+    seedChance: 0.4,
+    color: '#c99bd6',
   },
 };
 
@@ -822,6 +884,28 @@ const RECIPES = [
     consumable: true,
     verb: 'Cook',
   },
+  {
+    id: 'tomatoSoup',
+    group: 'cooking',
+    name: 'Tomato Soup',
+    icon: '🍅',
+    desc: 'Tomatoes, onion and herbs simmered bright. +46 energy when eaten.',
+    cost: { tomato: 3, onion: 1, herb: 1 },
+    needs: 'campfire',
+    consumable: true,
+    verb: 'Cook',
+  },
+  {
+    id: 'onionPie',
+    group: 'cooking',
+    name: 'Onion Pie',
+    icon: '🥧',
+    desc: 'Slow-cooked onions under a golden crust. +58 energy when eaten.',
+    cost: { onion: 3, corn: 1, potato: 1, wood: 1 },
+    needs: 'campfire',
+    consumable: true,
+    verb: 'Cook',
+  },
 ];
 
 const SHOP_ITEMS = [
@@ -930,6 +1014,22 @@ const SHOP_ITEMS = [
     icon: '🥔',
     price: 9,
     desc: 'Plant in a tilled plot. Hearty tubers. Ready in about 58 seconds.',
+  },
+  {
+    id: 'tomatoSeed',
+    kind: 'item',
+    name: 'Tomato Seeds',
+    icon: '🍅',
+    price: 8,
+    desc: 'Plant in a tilled plot. Sun-loving vines. Ready in about 48 seconds.',
+  },
+  {
+    id: 'onionSeed',
+    kind: 'item',
+    name: 'Onion Seeds',
+    icon: '🧅',
+    price: 7,
+    desc: 'Plant in a tilled plot. Quick and hardy. Ready in about 40 seconds.',
   },
   {
     id: 'bait',
@@ -1083,6 +1183,20 @@ const QUESTS = [
     check: (s) => (s.stats.gathered.potato || 0) >= 1,
   },
   {
+    id: 'tomato',
+    icon: '🍅',
+    title: 'Harvest a tomato',
+    reward: 30,
+    check: (s) => (s.stats.gathered.tomato || 0) >= 1,
+  },
+  {
+    id: 'onion',
+    icon: '🧅',
+    title: 'Harvest an onion',
+    reward: 30,
+    check: (s) => (s.stats.gathered.onion || 0) >= 1,
+  },
+  {
     id: 'trout',
     icon: '🐠',
     title: 'Catch a river trout',
@@ -1196,7 +1310,7 @@ const WEATHERS = {
  * Extra islands you can charter from the pond dock.
  * Each one is its own little map with a different resource mix.
  */
-const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist', 'orchard', 'fern'];
+const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist', 'orchard', 'fern', 'glass', 'tide'];
 
 const ISLANDS = {
   home: {
@@ -1294,5 +1408,41 @@ const ISLANDS = {
       ['herb', 22], ['mush', 18], ['reed', 16], ['clay', 12],
       ['crystal', 8], ['fiber', 10], ['tree', 10],
     ],
+  },
+  glass: {
+    id: 'glass',
+    name: 'Glass Isle',
+    icon: '💎',
+    cost: 1150,
+    blurb: 'A bright, windswept shelf of stone and crystal, with clay pockets and quiet mushroom hollows.',
+    resources: 'Crystal · clay · stone · mushrooms · iron',
+    w: 1820,
+    h: 1420,
+    rx: 600,
+    ry: 465,
+    seed: 3301,
+    nodes: [
+      ['crystal', 14], ['clay', 18], ['rock', 26], ['mush', 16],
+      ['ore', 10], ['herb', 10], ['fiber', 12], ['tree', 8],
+    ],
+  },
+  tide: {
+    id: 'tide',
+    name: 'Tidepool Isle',
+    icon: '🐚',
+    cost: 1400,
+    blurb: 'A low, salt-washed island of reed beds, fruit trees and pools left by the tide.',
+    resources: 'Reeds · clay · fiber · mushrooms · apples',
+    w: 1860,
+    h: 1460,
+    rx: 610,
+    ry: 475,
+    seed: 5507,
+    nodes: [
+      ['reed', 30], ['clay', 16], ['fiber', 18], ['mush', 18],
+      ['appleTree', 10], ['bush', 12], ['herb', 12], ['crystal', 5],
+    ],
+    pond: { dx: -40, dy: 90, rx: 170, ry: 105 },
+    pondNodes: 1,
   },
 };
