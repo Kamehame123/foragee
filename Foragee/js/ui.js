@@ -8,6 +8,7 @@ class UI {
     this.objSig = '';
     this.acc = 0;
     this.resetTimer = null;
+    this.plantPlot = null;
 
     const $ = (id) => document.getElementById(id);
     this.el = {
@@ -153,7 +154,7 @@ class UI {
     if (sig !== this.invSig) {
       this.invSig = sig;
       this.updateInv();
-      if (this.current === 'craft' || this.current === 'shop' || this.current === 'bag') {
+      if (this.current === 'craft' || this.current === 'shop' || this.current === 'bag' || this.current === 'plant') {
         this.renderPanel();
       }
     }
@@ -224,6 +225,7 @@ class UI {
 
   closePanel() {
     this.current = null;
+    this.plantPlot = null;
     this.el.panelRoot.classList.add('hidden');
     this.el.panelRoot.innerHTML = '';
   }
@@ -246,6 +248,7 @@ class UI {
     else if (this.current === 'shop') this.renderShop();
     else if (this.current === 'help') this.renderHelp();
     else if (this.current === 'pause') this.renderPause();
+    else if (this.current === 'plant') this.renderPlantMenu();
   }
 
   setPanel(title, sub, body) {
@@ -314,8 +317,43 @@ class UI {
     );
   }
 
-  renderBag() {
+  openPlantMenu(plot) {
+    this.plantPlot = plot;
+    this.current = 'plant';
+    this.el.panelRoot.classList.remove('hidden');
+    this.renderPlantMenu();
+  }
+
+  renderPlantMenu() {
     const g = this.game;
+    const s = g.state;
+    const rows = Object.entries(CROPS)
+      .filter(([, conf]) => (s.inv[conf.seed] || 0) > 0)
+      .map(([id, conf]) => {
+        const have = s.inv[conf.seed] || 0;
+        const seedItem = ITEMS[conf.seed];
+        return `<div class="recipe">
+          <div class="recipe-icon">${conf.icon}</div>
+          <div class="recipe-main">
+            <div class="recipe-name">${conf.name}</div>
+            <div class="recipe-desc">Ready in about ${Math.round(g.cropGrowTime(id))} seconds. Yields ${conf.min}–${conf.max}.</div>
+            <div class="recipe-cost"><span class="cost-item">${seedItem.icon} ${have} seed${have === 1 ? '' : 's'} left</span></div>
+          </div>
+          <div class="recipe-action">
+            <button class="primary" data-action="plant" data-crop="${id}">Plant</button>
+          </div>
+        </div>`;
+      })
+      .join('');
+
+    this.setPanel(
+      'Plant seeds',
+      'Choose what to sow in this tilled plot.',
+      `<div class="recipe-grid">${rows || '<p class="panel-sub">No seeds in your bag. The trader sells berry, pumpkin, carrot and corn seeds.</p>'}</div>`
+    );
+  }
+
+  renderBag() {    const g = this.game;
     const s = g.state;
     const cap = g.capacity();
     const total = g.itemTotal();
@@ -350,6 +388,9 @@ class UI {
       torch: ['🕯️', 'Hand Torch'],
       lantern: ['🏮', 'Crystal Lantern'],
       boots: ['🥾', 'Trail Boots'],
+      well: ['🪔', 'Garden Well'],
+      coop: ['🐓', 'Chicken Coop'],
+      apiary: ['🐝', 'Bee Box'],
     };
     for (const [id, [icon, name]] of Object.entries(upNames)) {
       if (s.upgrades[id]) {
@@ -421,7 +462,7 @@ class UI {
 
     this.setPanel(
       'Trader',
-      `Coins in hand: <b style="color:var(--accent)">${s.coins}🪙</b> · Tools last forever. Seeds grow into more berries.`,
+      `Coins in hand: <b style="color:var(--accent)">${s.coins}🪙</b> · Tools last forever. Seeds and bait restock here.`,
       `<div class="shop-grid">
         <div>
           <h3 class="section-title">Buy</h3>
@@ -445,8 +486,9 @@ class UI {
           <p>Walk up to trees, rocks, bushes and grass. Hold <kbd>E</kbd> (or <kbd>Space</kbd>) to gather what they hold.</p>
           <p>Gathering costs energy. Eat with <kbd>F</kbd> or click a food in your bag. Sleep in the tent at the homestead to start a fresh day.</p>
           <p>Sell surplus to the trader and buy an axe, a pickaxe, and a hoe. Craft a campfire to cook and recharge quickly.</p>
-          <p>Use the hoe on the four garden plots, plant seeds, and harvest berries a minute later. Hold <kbd>Shift</kbd> while planting to sow pumpkin seeds instead.</p>
-          <p>Follow the path west to the pond to fish, and look for apple trees, beehives and clay banks around the forest.</p>
+          <p>Use the hoe on the four garden plots, then choose which seeds to sow from your bag. Berries, carrots, corn and pumpkins all grow at different speeds.</p>
+          <p>Follow the path west to the pond to fish, and look for apple trees, hazelnut trees, beehives, reed beds and clay banks around the forest.</p>
+          <p>Build a garden well, chicken coop and bee box to make the homestead work while you explore. Storms roll in now and then and speed up regrowth.</p>
           ${
             this.game.isTouch
               ? '<p><strong>On touch:</strong> drag the stick to move, hold 🌿 to gather, and tap 🍓 to eat.</p>'
@@ -460,12 +502,12 @@ class UI {
               ? `<div class="key-row"><span>Move</span><span>Drag the stick</span></div>
                  <div class="key-row"><span>Gather / interact</span><span>Hold 🌿</span></div>
                  <div class="key-row"><span>Eat best food</span><span>Tap 🍓</span></div>
-                 <div class="key-row"><span>Plant pumpkins</span><span>Only pumpkin seeds in bag</span></div>
+                 <div class="key-row"><span>Plant seeds</span><span>Tap the plot, then choose</span></div>
                  <div class="key-row"><span>Crafting / Bag / Help</span><span>Top buttons</span></div>`
               : `<div class="key-row"><span>Move</span><span><kbd>WASD</kbd> / arrows</span></div>
                  <div class="key-row"><span>Sprint</span><span><kbd>Shift</kbd> (drains energy)</span></div>
                  <div class="key-row"><span>Gather / interact</span><span><kbd>E</kbd> or <kbd>Space</kbd></span></div>
-                 <div class="key-row"><span>Plant pumpkins</span><span><kbd>Shift</kbd> + interact</span></div>
+                 <div class="key-row"><span>Plant seeds</span><span>Interact with a tilled plot</span></div>
                  <div class="key-row"><span>Eat best food</span><span><kbd>F</kbd></span></div>
                  <div class="key-row"><span>Crafting</span><span><kbd>C</kbd></span></div>
                  <div class="key-row"><span>Bag</span><span><kbd>I</kbd></span></div>
@@ -528,6 +570,13 @@ class UI {
         g.eat(btn.dataset.id);
         this.renderPanel();
         break;
+      case 'plant': {
+        const plot = this.plantPlot;
+        const crop = btn.dataset.crop;
+        this.closePanel();
+        g.plantCrop(plot, crop);
+        break;
+      }
       case 'resume':
         this.closePanel();
         break;

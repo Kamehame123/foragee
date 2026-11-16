@@ -112,6 +112,9 @@ class Game {
         torch: false,
         lantern: false,
         boots: false,
+        well: false,
+        coop: false,
+        apiary: false,
       },
       weather: 'clear',
       weatherTimer: 120,
@@ -174,7 +177,7 @@ class Game {
     this.last = performance.now();
     Sound.ensure();
     Sound.startAmbience();
-    Sound.setRain(this.weatherType() === 'rain' ? 1 : 0);
+    Sound.setRain(this.isRaining() ? 1 : 0);
     this.ui.hideStart();
     this.save();
     if (first) {
@@ -471,8 +474,12 @@ class Game {
     let id = preferred;
 
     if (!id || !ITEMS[id] || !ITEMS[id].food || !(s.inv[id] > 0)) {
-      const order = ['stew', 'jam', 'berry', 'mushroom'];
-      id = order.find((itemId) => (s.inv[itemId] || 0) > 0);
+      const missing = s.maxEnergy - s.energy;
+      const foods = Object.keys(ITEMS)
+        .filter((itemId) => ITEMS[itemId].food && (s.inv[itemId] || 0) > 0)
+        .sort((a, b) => ITEMS[a].food - ITEMS[b].food);
+      // Prefer a snack that fills the gap without wasting a whole feast.
+      id = foods.filter((itemId) => ITEMS[itemId].food <= missing).pop() || foods[0];
     }
 
     if (!id) {
@@ -544,6 +551,13 @@ class Game {
         this.ui.toast('Crystal lantern glows softly. The dark feels smaller now.', 'good');
       } else if (recipe.id === 'boots') {
         this.ui.toast('Trail boots laced. You move 15% faster.', 'good');
+      } else if (recipe.id === 'well') {
+        this.spawnSparkle(this.world.homestead.x - 120, this.world.homestead.y + 64, 22);
+        this.ui.toast('Garden well dug. The plots stay watered and grow faster.', 'good');
+      } else if (recipe.id === 'coop') {
+        this.ui.toast('Chicken coop built. Fresh eggs every morning.', 'good');
+      } else if (recipe.id === 'apiary') {
+        this.ui.toast('Bee box set up. Honey every morning.', 'good');
       }
     } else {
       this.addItem(recipe.id, 1);
@@ -611,7 +625,7 @@ class Game {
       Sound.ensure();
       Sound.click();
     }
-    Sound.setRain(this.weatherType() === 'rain' ? 1 : 0);
+    Sound.setRain(this.isRaining() ? 1 : 0);
     this.ui.updateMuteIcon();
     if (this.ui.current === 'pause') this.ui.renderPanel();
     this.save();
@@ -680,13 +694,16 @@ class Game {
         return { text: 'Till the garden plot' };
       }
       if (p.state === 'tilled') {
-        if ((this.state.inv.seed || 0) > 0) return { text: 'Plant berry seeds' };
+        const seeds = this.availableSeeds();
+        if (seeds.length === 1) return { text: `Plant ${CROPS[seeds[0]].name.toLowerCase()}` };
+        if (seeds.length > 1) return { text: 'Plant seeds' };
         return { text: 'Tilled soil — seeds are at the stall', muted: true };
       }
+      const conf = CROPS[p.crop] || CROPS.berry;
       if (p.state === 'growing') {
-        return { text: `Berries growing… ${Math.round(p.growth * 100)}%`, muted: true };
+        return { text: `${conf.name} growing… ${Math.round(p.growth * 100)}%`, muted: true };
       }
-      return { text: 'Harvest ripe berries' };
+      return { text: `Harvest ${conf.name.toLowerCase()}` };
     }
 
     if (t.kind === 'tent') return { text: 'Sleep until morning' };
@@ -739,24 +756,7 @@ class Game {
     }
 
     if (p.state === 'tilled') {
-      let crop = 'berry';
-      if ((s.inv.seed || 0) <= 0 && (s.inv.pumpkinSeed || 0) > 0) crop = 'pumpkin';
-      else if ((s.inv.pumpkinSeed || 0) > 0 && this.keys.sprint) crop = 'pumpkin';
-
-      const conf = CROPS[crop] || CROPS.berry;
-      if ((s.inv[conf.seed] || 0) <= 0) {
-        Sound.error();
-        this.ui.toast(crop === 'pumpkin' ? 'No pumpkin seeds — the trader sells them.' : 'No seeds — buy berry seeds from the trader.', 'warn');
-        return;
-      }
-      this.removeItem(conf.seed, 1);
-      p.state = 'growing';
-      p.growth = 0;
-      p.crop = crop;
-      this.player.swing('hoe');
-      Sound.rustle();
-      this.spawnSparkle(p.x, p.y - 8, 6);
-      this.ui.toast(`Planted ${conf.name.toLowerCase()}! Ready in about ${Math.round(this.cropGrowTime(crop))} seconds.`);
+      this.openPlanting(p);
       return;
     }
 
@@ -784,11 +784,50 @@ class Game {
     }
   }
 
+  availableSeeds() {
+    return Object.keys(CROPS).filter((id) => (this.state.inv[CROPS[id].seed] || 0) > 0);
+  }
+
+  openPlanting(p) {
+    const crops = this.availableSeeds();
+    if (!crops.length) {
+      Sound.error();
+      this.ui.toast('No seeds — the trader sells berry, pumpkin, carrot and corn seeds.', 'warn');
+      return;
+    }
+    if (crops.length === 1) {
+      this.plantCrop(p, crops[0]);
+      return;
+    }
+    this.ui.openPlantMenu(p);
+  }
+
+  plantCrop(p, crop) {
+    if (!p || p.state !== 'tilled') return;
+    const conf = CROPS[crop];
+    if (!conf) return;
+    const s = this.state;
+    if ((s.inv[conf.seed] || 0) <= 0) {
+      Sound.error();
+      this.ui.toast(`No ${conf.name.toLowerCase()} seeds left.`, 'warn');
+      return;
+    }
+    this.removeItem(conf.seed, 1);
+    p.state = 'growing';
+    p.growth = 0;
+    p.crop = crop;
+    this.player.swing('hoe');
+    Sound.rustle();
+    this.spawnSparkle(p.x, p.y - 8, 6);
+    this.ui.toast(`Planted ${conf.name.toLowerCase()}! Ready in about ${Math.round(this.cropGrowTime(crop))} seconds.`);
+  }
+
   cropGrowTime(crop) {
     const base = CROPS[crop] ? CROPS[crop].grow : 45;
     const watered = this.state.tools.wateringCan ? 0.65 : 1;
-    const rain = this.weatherType() === 'rain' ? 0.9 : 1;
-    return base * watered * rain;
+    const well = this.state.upgrades.well ? 0.85 : 1;
+    const rain = this.isRaining() ? 0.9 : 1;
+    return base * watered * well * rain;
   }
 
   sleep() {
@@ -799,8 +838,32 @@ class Game {
     this.sleepFade = 1.5;
     Sound.sleep();
     this.ui.toast(`Day ${s.day}. You feel rested and ready.`, 'good');
+    this.dailyHomestead();
     this.spawnSparkle(this.player.x, this.player.y - 30, 10);
     this.save();
+  }
+
+  dailyHomestead() {
+    const s = this.state;
+    const gains = [];
+    if (s.upgrades.coop) {
+      const eggs = Math.random() < 0.35 ? 2 : 1;
+      const added = this.addItem('egg', eggs);
+      if (added > 0) {
+        s.stats.gathered.egg = (s.stats.gathered.egg || 0) + added;
+        gains.push(`🥚 ${added}`);
+      }
+    }
+    if (s.upgrades.apiary) {
+      const added = this.addItem('honey', 1);
+      if (added > 0) {
+        s.stats.gathered.honey = (s.stats.gathered.honey || 0) + added;
+        gains.push('🍯 1');
+      }
+    }
+    if (gains.length) {
+      this.ui.toast(`The homestead provides ${gains.join(' · ')}.`, 'good');
+    }
   }
 
   /* ---------------- gathering ---------------- */
@@ -894,6 +957,16 @@ class Game {
       }
     }
 
+    if (node.type === 'pond' && (this.state.inv.bait || 0) > 0) {
+      this.removeItem('bait', 1);
+      const added = this.addItem('fish', 1);
+      if (added > 0) {
+        this.state.stats.gathered.fish = (this.state.stats.gathered.fish || 0) + added;
+        this.state.stats.fishCaught = (this.state.stats.fishCaught || 0) + added;
+        this.addText(node.x, node.y - 54, '+1 River Fish (bait)', '#b8e6ef');
+      }
+    }
+
     this.spawnBurst(node.x, node.y - 14, conf.particles, 14);
     this.spawnSparkle(node.x, node.y - 24, 5);
     this.questCheck();
@@ -908,6 +981,11 @@ class Game {
 
   weatherType() {
     return this.state.weather || 'clear';
+  }
+
+  isRaining() {
+    const w = this.weatherType();
+    return w === 'rain' || w === 'storm';
   }
 
   pickWeather() {
@@ -930,9 +1008,10 @@ class Game {
     const conf = WEATHERS[id] || WEATHERS.clear;
     s.weather = id;
     s.weatherTimer = conf.min + Math.random() * (conf.max - conf.min);
-    Sound.setRain(id === 'rain' ? 1 : 0);
+    Sound.setRain(id === 'rain' || id === 'storm' ? 1 : 0);
 
     if (id === 'rain') this.ui.toast(`${conf.icon} Rain settles in. The garden drinks deep.`, 'good');
+    else if (id === 'storm') this.ui.toast(`${conf.icon} A storm rolls in. Heavy rain and thunder.`, 'warn');
     else if (id === 'fog') this.ui.toast(`${conf.icon} Fog curls between the trees.`);
     else if (id === 'cloudy') this.ui.toast(`${conf.icon} Clouds drift over the homestead.`);
     else this.ui.toast(`${conf.icon} The sky clears.`, 'good');
@@ -960,6 +1039,7 @@ class Game {
       s.time -= 24;
       s.day += 1;
       this.ui.toast(`Day ${s.day} on the homestead.`, 'good');
+      this.dailyHomestead();
       this.save();
     }
 
@@ -1241,6 +1321,19 @@ class Game {
       y: fire.y,
       f: () => this.world.drawCampfire(ctx, this.clock, this.state.upgrades.campfire, this.state.upgrades.hearth),
     });
+    if (this.state.upgrades.well) {
+      drawables.push({ y: this.world.wellPos.y, f: () => this.world.drawWell(ctx, this.clock) });
+    }
+    if (this.state.upgrades.coop) {
+      drawables.push({ y: this.world.coopPos.y, f: () => this.world.drawCoop(ctx, this.clock) });
+    }
+    if (this.state.upgrades.apiary) {
+      drawables.push({ y: this.world.apiaryPos.y, f: () => this.world.drawApiary(ctx, this.clock) });
+    }
+    for (const c of this.world.chickens) {
+      if (c.x < left || c.x > right || c.y < top || c.y > bottom) continue;
+      drawables.push({ y: c.y, f: () => this.world.drawChicken(ctx, c, this.clock) });
+    }
     for (const r of this.world.rabbits) {
       if (r.x < left || r.x > right || r.y < top || r.y > bottom) continue;
       drawables.push({ y: r.y, f: () => this.world.drawRabbit(ctx, r, this.clock) });
@@ -1455,23 +1548,33 @@ class Game {
     }
 
     // Rain: screen-space streaks, cheap and wind-blown.
+    const storm = w === 'storm';
     ctx.save();
-    ctx.strokeStyle = 'rgba(198, 226, 238, 0.4)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = storm ? 'rgba(206, 232, 244, 0.55)' : 'rgba(198, 226, 238, 0.4)';
+    ctx.lineWidth = storm ? 1.4 : 1.2;
     const t = this.clock;
-    const count = 130;
+    const count = storm ? 210 : 130;
     for (let i = 0; i < count; i++) {
       const seed = i * 127.1;
-      const speed = 560 + (i % 7) * 45;
+      const speed = 560 + (i % 7) * 45 + (storm ? 160 : 0);
       const x = ((seed * 13.7 + t * 80) % (vw + 140)) - 70;
       const y = ((seed * 7.3 + t * speed) % (vh + 160)) - 80;
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.lineTo(x - 7, y + 17);
+      ctx.lineTo(x - (storm ? 12 : 7), y + (storm ? 24 : 17));
       ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(38, 58, 70, 0.07)';
+    ctx.fillStyle = storm ? 'rgba(30, 46, 58, 0.14)' : 'rgba(38, 58, 70, 0.07)';
     ctx.fillRect(0, 0, vw, vh);
+
+    if (storm) {
+      const cycle = this.clock % 8;
+      const flash = cycle > 7.55 ? Math.sin(((cycle - 7.55) / 0.45) * Math.PI) : 0;
+      if (flash > 0.02) {
+        ctx.fillStyle = `rgba(226, 240, 255, ${flash * 0.3})`;
+        ctx.fillRect(0, 0, vw, vh);
+      }
+    }
     ctx.restore();
   }
 

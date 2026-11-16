@@ -9,6 +9,9 @@ class World {
     this.tentPos = { x: 1200, y: 918 };
     this.stallPos = { x: 1476, y: 962 };
     this.campfirePos = { x: 1384, y: 1088 };
+    this.coopPos = { x: 1516, y: 1162 };
+    this.apiaryPos = { x: 1452, y: 1216 };
+    this.wellPos = { x: 1268, y: 1150 };
     this.pond = { x: 820, y: 1230, rx: 212, ry: 142 };
     this.dock = { x1: 924, x2: 1078, y1: 1218, y2: 1262, y: 1240 };
     this.plotDefs = [
@@ -31,11 +34,14 @@ class World {
     this.ambient = [];
     this.patches = [];
     this.rabbits = [];
+    this.chickens = [];
+    this.ambientTimer = 4;
 
     this.generatePatches();
     this.generateDecor();
     this.generateAmbient();
     this.generateRabbits();
+    this.generateChickens();
 
     if (saved && Array.isArray(saved.nodes) && saved.nodes.length) {
       this.loadNodes(saved.nodes);
@@ -148,6 +154,28 @@ class World {
     }
   }
 
+  generateChickens() {
+    const spots = [
+      [1496, 1196], [1552, 1180], [1470, 1236], [1570, 1222],
+    ];
+    for (const [bx, by] of spots) {
+      this.chickens.push({
+        x: bx,
+        y: by,
+        homeX: bx,
+        homeY: by,
+        tx: bx,
+        ty: by,
+        dir: this.rng.chance(0.5) ? 1 : -1,
+        peckT: 0,
+        wait: 0.5 + this.rng.next() * 2,
+        speed: 0,
+        moving: false,
+        seed: this.rng.next() * 10,
+      });
+    }
+  }
+
   spotFree(x, y, ignoreHomestead) {
     if (x < 70 || y < 90 || x > this.w - 70 || y > this.h - 70) return false;
     if (this.inPond(x, y, 26) || this.onDock(x, y, 26)) return false;
@@ -155,6 +183,9 @@ class World {
     if (dist(x, y, this.tentPos.x, this.tentPos.y) < 95) return false;
     if (dist(x, y, this.stallPos.x, this.stallPos.y) < 100) return false;
     if (dist(x, y, this.campfirePos.x, this.campfirePos.y) < 85) return false;
+    if (dist(x, y, this.coopPos.x, this.coopPos.y) < 110) return false;
+    if (dist(x, y, this.apiaryPos.x, this.apiaryPos.y) < 90) return false;
+    if (dist(x, y, this.wellPos.x, this.wellPos.y) < 90) return false;
     for (const p of this.plotDefs) {
       if (dist(x, y, p.x, p.y) < 78) return false;
     }
@@ -238,6 +269,7 @@ class World {
 
     this.place('tree', 46, forest, 190);
     this.place('appleTree', 14, forest, 220);
+    this.place('nutTree', 12, forest, 220);
     this.place('fiber', 54, null, 0);
     this.place('rock', 26, rocky, 155);
     this.place('ore', 10, rocky, 135);
@@ -247,6 +279,7 @@ class World {
     this.place('herb', 22, null, 0);
     this.place('hive', 8, forest, 180);
     this.place('clay', 3, pondEdge, 42);
+    this.place('reed', 20, pondEdge, 62);
 
     this.addFixedNode('pond', 946, 1208);
     this.addFixedNode('pond', 812, 1374);
@@ -257,6 +290,7 @@ class World {
       ['tree', 300, -152],
       ['tree', -90, -300],
       ['appleTree', 268, -262],
+      ['nutTree', -350, 220],
       ['fiber', -320, 180],
       ['fiber', 330, 150],
       ['fiber', 180, -250],
@@ -303,10 +337,12 @@ class World {
 
     const want = [
       ['appleTree', 8, forest, 220],
+      ['nutTree', 6, forest, 220],
       ['herb', 10, null, 0],
       ['hive', 5, forest, 180],
       ['crystal', 3, rocky, 150],
       ['clay', 2, pondEdge, 42],
+      ['reed', 8, pondEdge, 62],
     ];
     for (const [type, min, centers, spread] of want) {
       const have = count(type);
@@ -338,7 +374,7 @@ class World {
   makePlots(saved) {
     return this.plotDefs.map((def, i) => {
       const s = Array.isArray(saved) ? saved[i] : null;
-      const crop = s && (s.crop === 'pumpkin' || s.crop === 'berry') ? s.crop : 'berry';
+      const crop = s && CROPS[s.crop] ? s.crop : 'berry';
       return {
         x: def.x,
         y: def.y,
@@ -373,7 +409,8 @@ class World {
 
   update(dt, game) {
     const weather = game.weatherType ? game.weatherType() : 'clear';
-    const respawnRate = weather === 'rain' ? 1.35 : 1;
+    const raining = game.isRaining ? game.isRaining() : weather === 'rain';
+    const respawnRate = raining ? 1.35 : 1;
 
     for (const n of this.nodes) {
       if (n.shake > 0) n.shake = Math.max(0, n.shake - dt * 26);
@@ -409,6 +446,14 @@ class World {
     }
 
     this.updateRabbits(dt, game);
+    this.updateChickens(dt, game);
+
+    this.ambientTimer -= dt;
+    if (this.ambientTimer <= 0) {
+      this.ambientTimer = 6 + Math.random() * 9;
+      if (game.isNight && game.isNight()) Sound.cricket();
+      else Sound.bird();
+    }
   }
 
   updateRabbits(dt, game) {
@@ -456,6 +501,55 @@ class World {
         }
       } else {
         r.hopT = 0;
+      }
+    }
+  }
+
+  updateChickens(dt, game) {
+    for (const c of this.chickens) {
+      const px = game.player.x;
+      const py = game.player.y;
+      const d = dist(c.x, c.y, px, py);
+
+      if (d < 78) {
+        const away = Math.max(1, d);
+        c.tx = clamp(c.x + ((c.x - px) / away) * 70, 50, this.w - 50);
+        c.ty = clamp(c.y + ((c.y - py) / away) * 70, 80, this.h - 50);
+        c.moving = true;
+        c.speed = 76;
+        c.wait = 0.8;
+      } else {
+        c.wait -= dt;
+        if (c.wait <= 0) {
+          const a = Math.random() * TAU;
+          const radius = 20 + Math.random() * 70;
+          c.tx = clamp(this.coopPos.x + Math.cos(a) * radius, 50, this.w - 50);
+          c.ty = clamp(this.coopPos.y + Math.sin(a) * radius, 80, this.h - 50);
+          c.wait = 1.4 + Math.random() * 3.2;
+          c.speed = 26 + Math.random() * 18;
+          c.moving = true;
+        }
+      }
+
+      if (c.moving) {
+        if (this.isBlocked(c.tx, c.ty)) {
+          c.tx = c.homeX;
+          c.ty = c.homeY;
+        }
+        const dx = c.tx - c.x;
+        const dy = c.ty - c.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 3) {
+          c.moving = false;
+          c.peckT = 0;
+        } else {
+          c.x += (dx / len) * c.speed * dt;
+          c.y += (dy / len) * c.speed * dt;
+          c.dir = dx >= 0 ? 1 : -1;
+          c.peckT += dt * 7;
+        }
+      } else {
+        c.peckT += dt * 2.4;
       }
     }
   }
@@ -959,6 +1053,82 @@ class World {
                 ctx.fill();
               }
             }
+          } else if (p.crop === 'carrot') {
+            for (let i = -1; i <= 1; i++) {
+              const sx = i * 17;
+              const sh = 6 + g * 14;
+              const sway = Math.sin(t * 1.4 + i) * 1.4;
+              ctx.strokeStyle = '#4f8f4a';
+              ctx.lineWidth = 2;
+              for (let f = -1; f <= 1; f++) {
+                ctx.beginPath();
+                ctx.moveTo(sx, 2);
+                ctx.quadraticCurveTo(sx + f * 3 + sway, 2 - sh * 0.6, sx + f * 5 + sway, 2 - sh);
+                ctx.stroke();
+              }
+              ctx.fillStyle = '#6fae54';
+              ctx.beginPath();
+              ctx.ellipse(sx - 4 + sway, 4 - sh * 0.55, 4.2, 2.2, -0.6, 0, TAU);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.ellipse(sx + 4 + sway, 3 - sh * 0.65, 4, 2, 0.6, 0, TAU);
+              ctx.fill();
+              if (p.state === 'ripe') {
+                ctx.fillStyle = '#e07a3a';
+                ctx.beginPath();
+                ctx.ellipse(sx, 3, 4.8, 5.6, 0.1, 0, TAU);
+                ctx.fill();
+                ctx.fillStyle = '#f29a54';
+                ctx.beginPath();
+                ctx.ellipse(sx - 1.4, 1.4, 1.6, 2.2, -0.3, 0, TAU);
+                ctx.fill();
+                ctx.strokeStyle = '#b85e2a';
+                ctx.lineWidth = 0.9;
+                ctx.beginPath();
+                ctx.moveTo(sx - 2.4, 0);
+                ctx.lineTo(sx - 2.8, -2);
+                ctx.stroke();
+              }
+            }
+          } else if (p.crop === 'corn') {
+            for (let i = -1; i <= 1; i++) {
+              const sx = i * 17;
+              const sh = 10 + g * 24;
+              const sway = Math.sin(t * 1.2 + i) * 2;
+              ctx.strokeStyle = '#4f8f4a';
+              ctx.lineWidth = 2.4;
+              ctx.beginPath();
+              ctx.moveTo(sx, 7);
+              ctx.quadraticCurveTo(sx + sway * 0.4, 7 - sh * 0.6, sx + sway, 7 - sh);
+              ctx.stroke();
+              for (let l = 0; l < 3; l++) {
+                const ly = 7 - sh * (0.3 + l * 0.22);
+                const dir = l % 2 ? 1 : -1;
+                ctx.fillStyle = '#5fa054';
+                ctx.beginPath();
+                ctx.ellipse(sx + dir * 6 + sway * 0.5, ly, 6.5, 2.4, dir * 0.5, 0, TAU);
+                ctx.fill();
+              }
+              if (p.state === 'ripe') {
+                const cy = 7 - sh * 0.58;
+                ctx.fillStyle = '#f2c66a';
+                ctx.beginPath();
+                ctx.ellipse(sx + 4, cy, 3.6, 7.2, 0.2, 0, TAU);
+                ctx.fill();
+                ctx.strokeStyle = '#d9a93f';
+                ctx.lineWidth = 0.8;
+                for (let k = -1; k <= 1; k++) {
+                  ctx.beginPath();
+                  ctx.moveTo(sx + 4 + k * 1.8, cy - 6);
+                  ctx.lineTo(sx + 4 + k * 1.8, cy + 6);
+                  ctx.stroke();
+                }
+                ctx.fillStyle = '#6e7a3a';
+                ctx.beginPath();
+                ctx.ellipse(sx + 2, cy - 4, 2, 5, -0.3, 0, TAU);
+                ctx.fill();
+              }
+            }
           } else {
             for (let i = -1; i <= 1; i++) {
               const sx = i * 17;
@@ -1042,6 +1212,9 @@ class World {
       case 'appleTree':
         this.drawAppleTree(ctx, n, t);
         break;
+      case 'nutTree':
+        this.drawAppleTree(ctx, n, t, true);
+        break;
       case 'rock':
         this.drawRock(ctx, n, false);
         break;
@@ -1068,6 +1241,9 @@ class World {
         break;
       case 'clay':
         this.drawClay(ctx, n, t);
+        break;
+      case 'reed':
+        this.drawReed(ctx, n, t);
         break;
       default:
         this.drawFiber(ctx, n, t);
@@ -1168,7 +1344,7 @@ class World {
     ctx.restore();
   }
 
-  drawAppleTree(ctx, n, t) {
+  drawAppleTree(ctx, n, t, nut = false) {
     const s = 0.88 + ((n.seed * 7) % 10) * 0.016;
     const health = n.hp / n.maxHp;
     ctx.save();
@@ -1217,20 +1393,37 @@ class World {
     for (let i = 0; i < count; i++) {
       const [ax, ay] = spots[i];
       const bob = Math.sin(t * 1.6 + i + n.seed) * 0.5;
-      ctx.fillStyle = '#c93a3a';
-      ctx.beginPath();
-      ctx.arc(ax, ay + bob, 2.9, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = '#f07a6a';
-      ctx.beginPath();
-      ctx.arc(ax - 0.9, ay - 0.9 + bob, 1, 0, TAU);
-      ctx.fill();
-      ctx.strokeStyle = '#6e472d';
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(ax, ay - 2.8 + bob);
-      ctx.lineTo(ax + 0.8, ay - 4.2 + bob);
-      ctx.stroke();
+      if (nut) {
+        ctx.fillStyle = '#8a5a3b';
+        ctx.beginPath();
+        ctx.arc(ax, ay + bob, 2.7, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#c9a06f';
+        ctx.beginPath();
+        ctx.arc(ax - 0.8, ay - 0.8 + bob, 0.9, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = '#6e472d';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay - 2.6 + bob);
+        ctx.lineTo(ax + 0.7, ay - 4 + bob);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#c93a3a';
+        ctx.beginPath();
+        ctx.arc(ax, ay + bob, 2.9, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#f07a6a';
+        ctx.beginPath();
+        ctx.arc(ax - 0.9, ay - 0.9 + bob, 1, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = '#6e472d';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay - 2.8 + bob);
+        ctx.lineTo(ax + 0.8, ay - 4.2 + bob);
+        ctx.stroke();
+      }
     }
 
     ctx.fillStyle = '#5fa054';
@@ -1515,6 +1708,35 @@ class World {
         ctx.fillStyle = '#e5d79a';
         ctx.beginPath();
         ctx.ellipse(offset + sway - 0.5, -h - 3.4, 0.7, 2, 0.12, 0, TAU);
+        ctx.fill();
+      }
+    }
+  }
+
+  drawReed(ctx, n, t) {
+    ctx.fillStyle = 'rgba(28, 56, 32, 0.1)';
+    ellipse(ctx, 0, 2, 17, 4.5);
+
+    for (let i = 0; i < 11; i++) {
+      const offset = -14 + i * 2.8;
+      const h = 22 + Math.sin(n.seed + i * 1.7) * 6;
+      const sway = Math.sin(t * 1.4 + n.seed + i) * 3;
+      ctx.strokeStyle = i % 3 === 0 ? '#7fae62' : i % 2 ? '#5f9a55' : '#8fbf6c';
+      ctx.lineWidth = 1.9;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(offset, 1);
+      ctx.quadraticCurveTo(offset + sway * 0.4, -h * 0.5, offset + sway, -h);
+      ctx.stroke();
+
+      if (i % 2 === 0) {
+        ctx.fillStyle = '#8a6a3c';
+        ctx.beginPath();
+        ctx.ellipse(offset + sway, -h - 3.4, 2.1, 5.5, 0.12, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#c9a06f';
+        ctx.beginPath();
+        ctx.ellipse(offset + sway - 0.6, -h - 4.4, 0.8, 2.4, 0.12, 0, TAU);
         ctx.fill();
       }
     }
@@ -2273,6 +2495,262 @@ class World {
   }
 
   /* ---------------- critters & ambient ---------------- */
+
+  drawCoop(ctx, t) {
+    const p = this.coopPos;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    ctx.fillStyle = 'rgba(28, 56, 32, 0.16)';
+    ellipse(ctx, 2, 4, 34, 11);
+
+    ctx.fillStyle = '#8a5a3b';
+    rr(ctx, -30, -30, 60, 34, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#6e472d';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#a9713f';
+    rr(ctx, -27, -27, 54, 28, 5);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(110, 71, 45, 0.55)';
+    ctx.lineWidth = 1.2;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-26, -14 + i * 6);
+      ctx.lineTo(26, -14 + i * 6);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#8f4f32';
+    ctx.beginPath();
+    ctx.moveTo(-35, -28);
+    ctx.lineTo(0, -54);
+    ctx.lineTo(35, -28);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#6e3a24';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    ctx.fillStyle = '#5a341f';
+    rr(ctx, -9, -23, 18, 27, 8);
+    ctx.fill();
+    ctx.fillStyle = '#3a2014';
+    rr(ctx, -6, -20, 12, 23, 6);
+    ctx.fill();
+
+    ctx.strokeStyle = '#8a5a3b';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-12, 4);
+    ctx.lineTo(-26, 18);
+    ctx.moveTo(12, 4);
+    ctx.lineTo(26, 18);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#c9b26a';
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i < 6; i++) {
+      const sx = -22 + i * 9;
+      const sway = Math.sin(t * 1.2 + i) * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(sx, 5);
+      ctx.quadraticCurveTo(sx + sway, 11, sx + sway * 1.4, 15);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  drawApiary(ctx, t) {
+    const p = this.apiaryPos;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    ctx.fillStyle = 'rgba(28, 56, 32, 0.15)';
+    ellipse(ctx, 1, 3, 22, 7);
+
+    ctx.fillStyle = '#8a5a3b';
+    rr(ctx, -17, -28, 34, 30, 4);
+    ctx.fill();
+    ctx.fillStyle = '#c9a06f';
+    rr(ctx, -15, -26, 30, 26, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#a9713f';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-14, -21 + i * 6);
+      ctx.lineTo(14, -21 + i * 6);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#8f4f32';
+    ctx.beginPath();
+    ctx.moveTo(-21, -27);
+    ctx.lineTo(0, -40);
+    ctx.lineTo(21, -27);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#4a2c18';
+    ctx.beginPath();
+    ctx.ellipse(0, -5, 3, 2.2, 0, 0, TAU);
+    ctx.fill();
+
+    for (let i = 0; i < 5; i++) {
+      const a = t * 1.7 + i * 1.9;
+      const bx = Math.cos(a) * (16 + Math.sin(t + i) * 4);
+      const by = -18 + Math.sin(a * 1.3) * 12;
+      ctx.fillStyle = 'rgba(255, 209, 102, 0.9)';
+      ctx.beginPath();
+      ctx.arc(bx, by, 1.3, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(60, 50, 30, 0.5)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(bx - 1.8, by - 1.8);
+      ctx.lineTo(bx + 1.8, by + 1.8);
+      ctx.moveTo(bx + 1.8, by - 1.8);
+      ctx.lineTo(bx - 1.8, by + 1.8);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  drawWell(ctx, t) {
+    const p = this.wellPos;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    ctx.fillStyle = 'rgba(28, 56, 32, 0.16)';
+    ellipse(ctx, 2, 4, 29, 9);
+
+    ctx.fillStyle = '#9aa3ad';
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 24, 12, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#68727c';
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 17, 7, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#2f4858';
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 15, 5.6, 0, 0, TAU);
+    ctx.fill();
+
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU;
+      ctx.fillStyle = i % 2 ? '#919aa4' : '#b6bec7';
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(a) * 20, -2 + Math.sin(a) * 9, 5.4, 3.4, a, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = '#8a5a3b';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-17, -8);
+    ctx.lineTo(-17, -32);
+    ctx.moveTo(17, -8);
+    ctx.lineTo(17, -32);
+    ctx.stroke();
+
+    ctx.fillStyle = '#8f4f32';
+    ctx.beginPath();
+    ctx.moveTo(-24, -30);
+    ctx.lineTo(0, -46);
+    ctx.lineTo(24, -30);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#6e3a24';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    ctx.strokeStyle = '#c9b26a';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -30);
+    ctx.lineTo(0, -12);
+    ctx.stroke();
+    ctx.fillStyle = '#a9713f';
+    rr(ctx, -5, -13, 10, 8, 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(212, 245, 248, 0.4)';
+    ctx.lineWidth = 1;
+    const ripple = (t * 0.7) % 1;
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 4 + ripple * 8, 1.6 + ripple * 3, 0, 0, TAU);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  drawChicken(ctx, c, t) {
+    const peck = c.moving ? 0 : Math.max(0, Math.sin(c.peckT)) * 2.6;
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.fillStyle = 'rgba(28, 56, 32, 0.13)';
+    ctx.beginPath();
+    ctx.ellipse(0, 1, 8, 3, 0, 0, TAU);
+    ctx.fill();
+    ctx.scale(c.dir, 1);
+
+    ctx.fillStyle = '#e8dcc2';
+    ctx.beginPath();
+    ctx.ellipse(0, -6, 8, 5.6, -0.05, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#d6c7a6';
+    ctx.beginPath();
+    ctx.ellipse(-2, -6, 4.6, 4, -0.2, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = '#c9b895';
+    ctx.beginPath();
+    ctx.ellipse(-7, -8, 4, 2.8, 0.5, 0, TAU);
+    ctx.fill();
+
+    const headY = -12 + peck;
+    ctx.fillStyle = '#e8dcc2';
+    ctx.beginPath();
+    ctx.arc(5.6, headY, 3.6, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#c93a3a';
+    ctx.beginPath();
+    ctx.arc(5.2, headY - 3.4, 1.7, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#e8963c';
+    ctx.beginPath();
+    ctx.moveTo(8.6, headY);
+    ctx.lineTo(12.4, headY + 0.8);
+    ctx.lineTo(8.6, headY + 1.8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#2b2b26';
+    ctx.beginPath();
+    ctx.arc(6.6, headY - 0.6, 0.7, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = '#c98a3a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-2, 0);
+    ctx.lineTo(-2, 3);
+    ctx.moveTo(3, 0);
+    ctx.lineTo(3, 3);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(-1, -9, 3.4, 1.8, -0.3, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
 
   drawRabbit(ctx, r, t) {
     const hop = r.moving ? Math.abs(Math.sin(r.hopT)) * 4.5 : 0;
