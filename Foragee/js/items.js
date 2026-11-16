@@ -1024,6 +1024,20 @@ const QUESTS = [
     reward: 100,
     check: (s) => (s.stats.earned || 0) >= 400,
   },
+  {
+    id: 'islander',
+    icon: '⛵',
+    title: 'Chart a new island',
+    reward: 50,
+    check: (s) => s.islands && s.islands.unlocked && s.islands.unlocked.length >= 2,
+  },
+  {
+    id: 'explorer',
+    icon: '🏝️',
+    title: 'Unlock every island',
+    reward: 150,
+    check: (s) => s.islands && s.islands.unlocked && s.islands.unlocked.length >= ISLAND_ORDER.length,
+  },
 ];
 
 const WEATHERS = {
@@ -1061,5 +1075,76 @@ const WEATHERS = {
     weight: 7,
     min: 40,
     max: 85,
+  },
+};
+
+/**
+ * Extra islands you can charter from the pond dock.
+ * Each one is its own little map with a different resource mix.
+ */
+const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist'];
+
+const ISLANDS = {
+  home: {
+    id: 'home',
+    name: 'Home Isle',
+    icon: '🏡',
+    cost: 0,
+    blurb: 'Your homestead, the garden and the pond.',
+    w: 0,
+    h: 0,
+  },
+  bramble: {
+    id: 'bramble',
+    name: 'Bramble Isle',
+    icon: '🌿',
+    cost: 120,
+    blurb: 'Berry thickets, hazel groves and soft grass. A gentle place to stock the pantry.',
+    resources: 'Berries · nuts · fiber · honey',
+    w: 1680,
+    h: 1320,
+    rx: 560,
+    ry: 430,
+    seed: 7719,
+    nodes: [
+      ['bush', 30], ['fiber', 24], ['mush', 16], ['herb', 14],
+      ['appleTree', 8], ['nutTree', 7], ['hive', 4], ['tree', 16],
+    ],
+  },
+  amber: {
+    id: 'amber',
+    name: 'Amber Isle',
+    icon: '🪨',
+    cost: 300,
+    blurb: 'A rocky outcrop rich in ore and crystal, with clay along the shore.',
+    resources: 'Stone · iron · crystal · clay',
+    w: 1600,
+    h: 1260,
+    rx: 520,
+    ry: 400,
+    seed: 4821,
+    nodes: [
+      ['rock', 30], ['ore', 14], ['crystal', 8], ['clay', 7],
+      ['hive', 4], ['fiber', 12], ['tree', 12], ['herb', 8],
+    ],
+  },
+  mist: {
+    id: 'mist',
+    name: 'Mist Isle',
+    icon: '🌫️',
+    cost: 520,
+    blurb: 'A quiet, fog-wrapped island with reed beds, a hidden pond and old hazel trees.',
+    resources: 'Trout · reeds · nuts · crystal',
+    w: 1800,
+    h: 1440,
+    rx: 600,
+    ry: 470,
+    seed: 9137,
+    pond: { dx: 0, dy: -70, rx: 215, ry: 132 },
+    nodes: [
+      ['reed', 24], ['clay', 8], ['nutTree', 10], ['mush', 14],
+      ['herb', 12], ['crystal', 6], ['tree', 16], ['fiber', 10],
+    ],
+    pondNodes: 2,
   },
 };

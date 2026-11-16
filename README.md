@@ -4,7 +4,7 @@ A small collection of browser games and experiments.
 
 ## Foragee 🍃
 
-A cozy foraging game: gather, craft, trade, farm, and make the homestead yours. It runs entirely in the browser with no build step or dependencies.
+A cozy foraging game: gather, craft, trade, farm, charter new islands, and make the homestead yours. It runs entirely in the browser with no build step or dependencies.
 
 - **Play online:** https://kamehame123.github.io/foragee/ (once the first Pages deploy finishes)
 - **Play locally:** open `Foragee/index.html`, or serve the folder with `npx serve Foragee`

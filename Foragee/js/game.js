@@ -44,6 +44,7 @@ class Game {
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
     this.wasNight = this.isNight();
+    this.restoreIsland();
 
     this.lightCanvas = document.createElement('canvas');
     this.lightCtx = this.lightCanvas.getContext('2d');
@@ -118,6 +119,7 @@ class Game {
       },
       weather: 'clear',
       weatherTimer: 120,
+      islands: { unlocked: ['home'], current: 'home', maps: {} },
       stats: { gathered: {}, earned: 0, harvested: 0, crafted: 0 },
       claimed: [],
       player: { x: 1300, y: 1050 },
@@ -139,6 +141,14 @@ class Game {
       time: clamp(num(s.time, 8), 0, 23.999),
       weather: WEATHERS[s.weather] ? s.weather : 'clear',
       weatherTimer: Math.max(20, num(s.weatherTimer, 120)),
+      islands: (() => {
+        const src = s.islands && typeof s.islands === 'object' ? s.islands : {};
+        const unlocked = Array.isArray(src.unlocked) ? src.unlocked.filter((id) => ISLANDS[id]) : [];
+        if (!unlocked.includes('home')) unlocked.unshift('home');
+        const current = ISLANDS[src.current] && unlocked.includes(src.current) ? src.current : 'home';
+        const maps = src.maps && typeof src.maps === 'object' ? { ...src.maps } : {};
+        return { unlocked, current, maps };
+      })(),
       coins: Math.max(0, Math.floor(num(s.coins, 0))),
       maxEnergy: Math.max(50, num(s.maxEnergy, 100)),
       energy: clamp(num(s.energy, base.energy), 0, Math.max(50, num(s.maxEnergy, 100))),
@@ -159,9 +169,17 @@ class Game {
 
   save() {
     if (!this.state) return;
-    this.state.player = { x: Math.round(this.player.x), y: Math.round(this.player.y) };
-    this.state.nodes = this.world.serializeNodes();
-    this.state.plots = this.world.serializePlots();
+    const s = this.state;
+    if (this.world && this.world.island) {
+      const id = this.world.islandId;
+      s.islands.maps[id] = { nodes: this.world.serializeNodes(), savedAt: Date.now() };
+    } else if (this.world) {
+      s.islands.current = 'home';
+      s.homeSavedAt = Date.now();
+      s.player = { x: Math.round(this.player.x), y: Math.round(this.player.y) };
+      s.nodes = this.world.serializeNodes();
+      s.plots = this.world.serializePlots();
+    }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(this.state));
     } catch (err) {
@@ -169,7 +187,90 @@ class Game {
     }
   }
 
-  /* ---------------- lifecycle ---------------- */
+  secondsSince(ts, cap = 600) {
+    if (typeof ts !== 'number' || !Number.isFinite(ts)) return 0;
+    return clamp((Date.now() - ts) / 1000, 0, cap);
+  }
+
+  restoreIsland() {
+    const s = this.state;
+    const cur = s.islands.current;
+    if (!cur || cur === 'home') return;
+    const conf = ISLANDS[cur];
+    if (!conf || !s.islands.unlocked.includes(cur)) {
+      s.islands.current = 'home';
+      return;
+    }
+    const map = s.islands.maps[cur];
+    this.world = new World({ seed: s.seed, nodes: map && map.nodes, away: this.secondsSince(map && map.savedAt) }, conf);
+    this.player.x = this.world.boatPos.x;
+    this.player.y = this.world.boatPos.y - 46;
+    this.camera.x = this.player.x;
+    this.camera.y = this.player.y;
+  }
+
+  buyIsland(id) {
+    const conf = ISLANDS[id];
+    const s = this.state;
+    if (!conf || id === 'home' || s.islands.unlocked.includes(id)) return;
+    if (s.coins < conf.cost) {
+      Sound.error();
+      this.ui.toast('Not enough coins for that charter yet.', 'warn');
+      return;
+    }
+    s.coins -= conf.cost;
+    s.islands.unlocked.push(id);
+    Sound.coin();
+    this.ui.toast(`Charted ${conf.name}! Sail there from the dock or any island boat.`, 'good');
+    this.questCheck();
+    this.save();
+  }
+
+  sailTo(id) {
+    const conf = ISLANDS[id];
+    const s = this.state;
+    if (!conf) return;
+    if (id !== 'home' && !s.islands.unlocked.includes(id)) {
+      Sound.error();
+      this.ui.toast('Buy that island charter first.', 'warn');
+      return;
+    }
+    if (s.islands.current === id) {
+      this.ui.closePanel();
+      return;
+    }
+
+    this.save();
+
+    if (id === 'home') {
+      this.world = new World({
+        seed: s.seed,
+        nodes: s.nodes,
+        plots: s.plots,
+        away: this.secondsSince(s.homeSavedAt),
+      });
+      this.player.x = (this.world.dock.x1 + this.world.dock.x2) / 2;
+      this.player.y = this.world.dock.y2 - 14;
+    } else {
+      const map = s.islands.maps[id];
+      this.world = new World(
+        { seed: s.seed, nodes: map && map.nodes, away: this.secondsSince(map && map.savedAt) },
+        conf
+      );
+      this.player.x = this.world.boatPos.x;
+      this.player.y = this.world.boatPos.y - 46;
+    }
+
+    s.islands.current = id;
+    this.camera.x = this.player.x;
+    this.camera.y = this.player.y;
+    this.gatherNode = null;
+    this.target = null;
+    this.ui.closePanel();
+    this.save();
+    Sound.splash();
+    this.ui.toast(id === 'home' ? 'Home again. The homestead is just as you left it.' : `Welcome to ${conf.name}.`, 'good');
+  }
 
   begin() {
     const first = !this.started;
@@ -536,10 +637,10 @@ class Game {
     if (recipe.once) {
       s.upgrades[recipe.once] = true;
       if (recipe.id === 'campfire') {
-        this.spawnSparkle(this.world.campfirePos.x, this.world.campfirePos.y - 20, 20);
+        if (this.world.campfirePos) this.spawnSparkle(this.world.campfirePos.x, this.world.campfirePos.y - 20, 20);
         this.ui.toast('Campfire built! Warmth, light, and cooking unlocked.', 'good');
       } else if (recipe.id === 'hearth') {
-        this.spawnSparkle(this.world.campfirePos.x, this.world.campfirePos.y - 20, 26);
+        if (this.world.campfirePos) this.spawnSparkle(this.world.campfirePos.x, this.world.campfirePos.y - 20, 26);
         this.ui.toast('Stone hearth built. A wider glow and faster rest.', 'good');
       } else if (recipe.id === 'backpack') {
         this.ui.toast('Backpack woven. You can carry 20 more items.', 'good');
@@ -552,7 +653,7 @@ class Game {
       } else if (recipe.id === 'boots') {
         this.ui.toast('Trail boots laced. You move 15% faster.', 'good');
       } else if (recipe.id === 'well') {
-        this.spawnSparkle(this.world.homestead.x - 120, this.world.homestead.y + 64, 22);
+        if (this.world.wellPos) this.spawnSparkle(this.world.homestead.x - 120, this.world.homestead.y + 64, 22);
         this.ui.toast('Garden well dug. The plots stay watered and grow faster.', 'good');
       } else if (recipe.id === 'coop') {
         this.ui.toast('Chicken coop built. Fresh eggs every morning.', 'good');
@@ -668,9 +769,14 @@ class Game {
       if (!conf) continue;
       consider('node', n.x, n.y - 6, conf.range, n);
     }
-    for (const p of this.world.plots) consider('plot', p.x, p.y, 66, p);
-    consider('tent', this.world.tentPos.x, this.world.tentPos.y, 80);
-    consider('stall', this.world.stallPos.x, this.world.stallPos.y, 88);
+    if (!this.world.island) {
+      for (const p of this.world.plots) consider('plot', p.x, p.y, 66, p);
+      consider('tent', this.world.tentPos.x, this.world.tentPos.y, 80);
+      consider('stall', this.world.stallPos.x, this.world.stallPos.y, 88);
+    }
+    if (this.world.travelPos) {
+      consider('travel', this.world.travelPos.x, this.world.travelPos.y, 100);
+    }
 
     return best;
   }
@@ -706,6 +812,7 @@ class Game {
       return { text: `Harvest ${conf.name.toLowerCase()}` };
     }
 
+    if (t.kind === 'travel') return { text: this.world.travelLabel || 'Sail to the islands' };
     if (t.kind === 'tent') return { text: 'Sleep until morning' };
     if (t.kind === 'stall') return { text: 'Trade with the trader' };
     return null;
@@ -724,6 +831,11 @@ class Game {
     }
     if (t.kind === 'plot') {
       this.usePlot(t.ref);
+      return;
+    }
+    if (t.kind === 'travel') {
+      Sound.click();
+      this.ui.openPanel('islands');
       return;
     }
     if (t.kind === 'tent') {
@@ -1208,6 +1320,7 @@ class Game {
       const s = this.state;
       const nearFire =
         s.upgrades.campfire &&
+        !!this.world.campfirePos &&
         dist(this.player.x, this.player.y, this.world.campfirePos.x, this.world.campfirePos.y) < 170;
       if (!this.gatherNode) {
         const regen = nearFire ? (s.upgrades.hearth ? 10 : 8) : 1.6;
@@ -1291,9 +1404,13 @@ class Game {
     ctx.translate(ox, oy);
 
     this.world.drawBackground(ctx, this);
-    this.world.drawDock(ctx);
+    if (!this.world.island) {
+      this.world.drawDock(ctx);
+    }
     this.world.drawDecor(ctx, this.clock, this);
-    this.world.drawPlots(ctx, this.clock);
+    if (!this.world.island) {
+      this.world.drawPlots(ctx, this.clock);
+    }
 
     const pad = 140;
     const left = this.camera.x - vw / 2 - pad;
@@ -1307,36 +1424,42 @@ class Game {
       drawables.push({ y: n.y, f: () => this.world.drawNode(ctx, n, this.clock) });
     }
 
-    const tent = this.world.tentPos;
-    const stall = this.world.stallPos;
-    const fire = this.world.campfirePos;
+    if (!this.world.island) {
+      const tent = this.world.tentPos;
+      const stall = this.world.stallPos;
+      const fire = this.world.campfirePos;
 
-    if (tent.x > left && tent.x < right && tent.y > top && tent.y < bottom) {
-      drawables.push({ y: tent.y, f: () => this.world.drawTent(ctx, this.clock) });
-    }
-    if (stall.x > left && stall.x < right && stall.y > top && stall.y < bottom) {
-      drawables.push({ y: stall.y, f: () => this.world.drawStall(ctx, this.clock) });
-    }
-    drawables.push({
-      y: fire.y,
-      f: () => this.world.drawCampfire(ctx, this.clock, this.state.upgrades.campfire, this.state.upgrades.hearth),
-    });
-    if (this.state.upgrades.well) {
-      drawables.push({ y: this.world.wellPos.y, f: () => this.world.drawWell(ctx, this.clock) });
-    }
-    if (this.state.upgrades.coop) {
-      drawables.push({ y: this.world.coopPos.y, f: () => this.world.drawCoop(ctx, this.clock) });
-    }
-    if (this.state.upgrades.apiary) {
-      drawables.push({ y: this.world.apiaryPos.y, f: () => this.world.drawApiary(ctx, this.clock) });
-    }
-    for (const c of this.world.chickens) {
-      if (c.x < left || c.x > right || c.y < top || c.y > bottom) continue;
-      drawables.push({ y: c.y, f: () => this.world.drawChicken(ctx, c, this.clock) });
+      if (tent.x > left && tent.x < right && tent.y > top && tent.y < bottom) {
+        drawables.push({ y: tent.y, f: () => this.world.drawTent(ctx, this.clock) });
+      }
+      if (stall.x > left && stall.x < right && stall.y > top && stall.y < bottom) {
+        drawables.push({ y: stall.y, f: () => this.world.drawStall(ctx, this.clock) });
+      }
+      drawables.push({
+        y: fire.y,
+        f: () => this.world.drawCampfire(ctx, this.clock, this.state.upgrades.campfire, this.state.upgrades.hearth),
+      });
+      if (this.state.upgrades.well) {
+        drawables.push({ y: this.world.wellPos.y, f: () => this.world.drawWell(ctx, this.clock) });
+      }
+      if (this.state.upgrades.coop) {
+        drawables.push({ y: this.world.coopPos.y, f: () => this.world.drawCoop(ctx, this.clock) });
+      }
+      if (this.state.upgrades.apiary) {
+        drawables.push({ y: this.world.apiaryPos.y, f: () => this.world.drawApiary(ctx, this.clock) });
+      }
+      for (const c of this.world.chickens) {
+        if (c.x < left || c.x > right || c.y < top || c.y > bottom) continue;
+        drawables.push({ y: c.y, f: () => this.world.drawChicken(ctx, c, this.clock) });
+      }
     }
     for (const r of this.world.rabbits) {
       if (r.x < left || r.x > right || r.y < top || r.y > bottom) continue;
       drawables.push({ y: r.y, f: () => this.world.drawRabbit(ctx, r, this.clock) });
+    }
+    if (this.world.travelPos) {
+      const p = this.world.travelPos;
+      drawables.push({ y: p.y + 10, f: () => this.world.drawBoat(ctx, this.clock) });
     }
     drawables.push({ y: this.player.y, f: () => this.player.draw(ctx, this) });
 
@@ -1371,6 +1494,10 @@ class Game {
       x = t.ref.x;
       y = t.ref.y;
       rx = 36;
+    } else if (t.kind === 'travel') {
+      x = t.x;
+      y = t.y;
+      rx = 34;
     } else {
       return;
     }
@@ -1478,7 +1605,7 @@ class Game {
       g.fill();
     };
 
-    if (this.state.upgrades.campfire) {
+    if (this.state.upgrades.campfire && this.world.campfirePos) {
       const flick = Math.sin(this.clock * 7) * 6;
       const radius = this.state.upgrades.hearth ? 390 : 320;
       addLight(this.world.campfirePos.x, this.world.campfirePos.y - 12, radius + flick, 1);
@@ -1507,7 +1634,7 @@ class Game {
       ctx.arc(p.x, p.y, radius, 0, TAU);
       ctx.fill();
     };
-    if (this.state.upgrades.campfire) {
+    if (this.state.upgrades.campfire && this.world.campfirePos) {
       const warmRadius = this.state.upgrades.hearth ? 300 : 250;
       warm(this.world.campfirePos.x, this.world.campfirePos.y - 14, warmRadius, 0.1);
     }

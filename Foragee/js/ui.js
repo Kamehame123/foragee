@@ -246,6 +246,7 @@ class UI {
     if (this.current === 'craft') this.renderCraft();
     else if (this.current === 'bag') this.renderBag();
     else if (this.current === 'shop') this.renderShop();
+    else if (this.current === 'islands') this.renderIslands();
     else if (this.current === 'help') this.renderHelp();
     else if (this.current === 'pause') this.renderPause();
     else if (this.current === 'plant') this.renderPlantMenu();
@@ -476,6 +477,48 @@ class UI {
     );
   }
 
+  renderIslands() {
+    const g = this.game;
+    const s = g.state;
+    const rows = ISLAND_ORDER.map((id) => {
+      const conf = ISLANDS[id];
+      const owned = id === 'home' || s.islands.unlocked.includes(id);
+      const here = s.islands.current === id;
+      let action;
+      if (here) action = '<span class="shop-price owned-tag">You are here</span>';
+      else if (owned) action = `<button class="primary" data-action="sail" data-id="${id}">Sail</button>`;
+      else
+        action = `<button class="${s.coins >= conf.cost ? 'primary' : 'ghost'}" data-action="buyIsland" data-id="${id}" ${s.coins >= conf.cost ? '' : 'disabled'}>Buy · ${conf.cost}🪙</button>`;
+
+      return `<div class="shop-row">
+        <span class="shop-icon">${conf.icon}</span>
+        <div class="shop-main">
+          <div class="shop-name">${conf.name}${owned ? ' <span class="bag-tag">charted</span>' : ''}</div>
+          <div class="shop-desc">${conf.blurb}</div>
+          ${conf.resources ? `<div class="shop-desc" style="opacity:.78">${conf.resources}</div>` : ''}
+        </div>
+        ${action}
+      </div>`;
+    }).join('');
+
+    this.setPanel(
+      'Island charters',
+      `Coins in hand: <b style="color:var(--accent)">${s.coins}🪙</b> · Buy a charter, then sail from any dock or island boat.`,
+      `<div class="shop-grid">
+        <div>
+          <h3 class="section-title">Islands</h3>
+          ${rows}
+        </div>
+        <div>
+          <h3 class="section-title">Sailing notes</h3>
+          <p class="panel-sub">Each island is its own little map with a different mix of forage. Your bag, tools and coins travel with you.</p>
+          <p class="panel-sub">The rowboat on every shore brings you back. Nodes regrow while you are away.</p>
+          <p class="panel-sub">Charters are permanent, and every island comes with a free return trip.</p>
+        </div>
+      </div>`
+    );
+  }
+
   renderHelp() {
     this.setPanel(
       'How to play',
@@ -489,6 +532,7 @@ class UI {
           <p>Use the hoe on the four garden plots, then choose which seeds to sow from your bag. Berries, carrots, corn and pumpkins all grow at different speeds.</p>
           <p>Follow the path west to the pond to fish, and look for apple trees, hazelnut trees, beehives, reed beds and clay banks around the forest.</p>
           <p>Build a garden well, chicken coop and bee box to make the homestead work while you explore. Storms roll in now and then and speed up regrowth.</p>
+          <p>Visit the rowboat by the pond dock to charter new islands. Each one has its own resources — berries, ore, or misty trout water — and a boat waiting to bring you home.</p>
           ${
             this.game.isTouch
               ? '<p><strong>On touch:</strong> drag the stick to move, hold 🌿 to gather, and tap 🍓 to eat.</p>'
@@ -521,6 +565,7 @@ class UI {
             <li>Iron veins need a pickaxe — save up 45 coins.</li>
             <li>Standing by a lit campfire restores energy quickly.</li>
             <li>Night is dark without a torch, but fireflies are pretty.</li>
+            <li>Charter islands for resources your homestead lacks, then sail back with a full bag.</li>
             <li>Your game saves automatically in this browser.</li>
           </ul>
         </div>
@@ -565,6 +610,13 @@ class UI {
       case 'sell':
         g.sell(btn.dataset.id);
         this.renderPanel();
+        break;
+      case 'buyIsland':
+        g.buyIsland(btn.dataset.id);
+        this.renderPanel();
+        break;
+      case 'sail':
+        g.sailTo(btn.dataset.id);
         break;
       case 'eat':
         g.eat(btn.dataset.id);

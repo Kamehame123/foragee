@@ -1,7 +1,12 @@
 'use strict';
 
 class World {
-  constructor(saved) {
+  constructor(saved, island) {
+    if (island && island.id && island.id !== 'home') {
+      this.initIsland(saved, island);
+      return;
+    }
+
     this.w = 2600;
     this.h = 2000;
 
@@ -14,6 +19,9 @@ class World {
     this.wellPos = { x: 1268, y: 1150 };
     this.pond = { x: 820, y: 1230, rx: 212, ry: 142 };
     this.dock = { x1: 924, x2: 1078, y1: 1218, y2: 1262, y: 1240 };
+    this.island = null;
+    this.travelPos = { x: 1042, y: 1294 };
+    this.travelLabel = 'Sail to the islands';
     this.plotDefs = [
       { x: 1104, y: 1108 },
       { x: 1184, y: 1108 },
@@ -44,7 +52,7 @@ class World {
     this.generateChickens();
 
     if (saved && Array.isArray(saved.nodes) && saved.nodes.length) {
-      this.loadNodes(saved.nodes);
+      this.loadNodes(saved.nodes, saved.away);
     } else {
       this.generateNodes();
     }
@@ -53,18 +61,160 @@ class World {
     this.plots = this.makePlots(saved && Array.isArray(saved.plots) ? saved.plots : null);
   }
 
+  /* ---------------- islands ---------------- */
+
+  initIsland(saved, conf) {
+    this.island = conf;
+    this.islandId = conf.id;
+    this.w = conf.w;
+    this.h = conf.h;
+    this.center = { x: conf.w / 2, y: conf.h / 2 };
+    this.landRx = conf.rx;
+    this.landRy = conf.ry;
+
+    this.pond = conf.pond
+      ? {
+          x: this.center.x + (conf.pond.dx || 0),
+          y: this.center.y + (conf.pond.dy || 0),
+          rx: conf.pond.rx,
+          ry: conf.pond.ry,
+        }
+      : null;
+
+    this.homestead = { ...this.center };
+    this.tentPos = null;
+    this.stallPos = null;
+    this.campfirePos = null;
+    this.coopPos = null;
+    this.apiaryPos = null;
+    this.wellPos = null;
+    this.dock = null;
+    this.paths = [];
+    this.plotDefs = [];
+
+    this.boatPos = { x: this.center.x, y: this.center.y + this.landRy - 62 };
+    this.travelPos = this.boatPos;
+    this.travelLabel = 'Sail home or onward';
+
+    this.rng = makeRng((saved && saved.seed ? saved.seed : 12345) + conf.seed);
+    this.nodes = [];
+    this.decor = [];
+    this.ambient = [];
+    this.patches = [];
+    this.rabbits = [];
+    this.chickens = [];
+    this.plots = [];
+    this.ambientTimer = 4;
+
+    this.generateIslandPatches();
+    this.generateIslandDecor();
+    this.generateAmbient();
+
+    if (saved && Array.isArray(saved.nodes) && saved.nodes.length) {
+      this.loadNodes(saved.nodes, saved.away);
+    } else {
+      this.generateIslandNodes();
+    }
+  }
+
+  landContains(x, y, margin = 0) {
+    if (!this.center) return true;
+    return pointInEllipse(x, y, this.center.x, this.center.y, this.landRx + margin, this.landRy + margin);
+  }
+
+  generateIslandPatches() {
+    const colors = [
+      'rgba(48, 104, 52, 0.12)',
+      'rgba(150, 196, 110, 0.12)',
+      'rgba(64, 132, 74, 0.10)',
+      'rgba(202, 214, 140, 0.09)',
+    ];
+    for (let i = 0; i < 20; i++) {
+      const a = this.rng.next() * TAU;
+      const r = Math.sqrt(this.rng.next()) * 0.82;
+      this.patches.push({
+        x: this.center.x + Math.cos(a) * this.landRx * r,
+        y: this.center.y + Math.sin(a) * this.landRy * r,
+        rx: this.rng.range(70, 210),
+        ry: this.rng.range(50, 140),
+        color: this.rng.pick(colors),
+      });
+    }
+  }
+
+  generateIslandDecor() {
+    const flowerColors = ['#f2e6cf', '#ffd166', '#e8a0bf', '#c8b6ff', '#f4a259', '#9fd8c0'];
+    for (let i = 0; i < 220; i++) {
+      const a = this.rng.next() * TAU;
+      const r = Math.sqrt(this.rng.next()) * 0.88;
+      const x = this.center.x + Math.cos(a) * this.landRx * r;
+      const y = this.center.y + Math.sin(a) * this.landRy * r;
+      if (this.pond && pointInEllipse(x, y, this.pond.x, this.pond.y, this.pond.rx + 12, this.pond.ry + 12)) continue;
+      if (dist(x, y, this.travelPos.x, this.travelPos.y) < 70) continue;
+
+      const roll = this.rng.next();
+      let type = 'tuft';
+      if (roll > 0.91) type = 'stump';
+      else if (roll > 0.84) type = 'pebble';
+      else if (roll > 0.75) type = 'fern';
+      else if (roll > 0.58) type = 'flower';
+      else if (roll > 0.46) type = 'clover';
+
+      this.decor.push({
+        x,
+        y,
+        type,
+        s: this.rng.range(0.7, 1.3),
+        seed: this.rng.next() * 100,
+        color: this.rng.pick(flowerColors),
+      });
+    }
+  }
+
+  generateIslandNodes() {
+    for (const [type, count] of this.island.nodes || []) this.placeIsland(type, count);
+
+    if (this.island.pondNodes && this.pond) {
+      const p = this.pond;
+      this.addFixedNode('pond', p.x - p.rx * 0.62, p.y + p.ry * 0.55);
+      this.addFixedNode('pond', p.x + p.rx * 0.58, p.y + p.ry * 0.42);
+    }
+  }
+
+  placeIsland(type, count) {
+    if (!NODE_TYPES[type]) return;
+    let placed = 0;
+    let tries = 0;
+    while (placed < count && tries < count * 80) {
+      tries++;
+      const a = this.rng.next() * TAU;
+      const r = Math.sqrt(this.rng.next()) * 0.84;
+      const x = this.center.x + Math.cos(a) * this.landRx * r;
+      const y = this.center.y + Math.sin(a) * this.landRy * r;
+      if (!this.spotFree(x, y)) continue;
+      this.nodes.push(this.makeNode(type, x, y));
+      placed++;
+    }
+  }
+
   /* ---------------- geometry ---------------- */
 
   inPond(x, y, margin = 0) {
+    if (!this.pond) return false;
     return pointInEllipse(x, y, this.pond.x, this.pond.y, this.pond.rx + margin, this.pond.ry + margin);
   }
 
   onDock(x, y, margin = 0) {
     const d = this.dock;
+    if (!d) return false;
     return x >= d.x1 - margin && x <= d.x2 + margin && y >= d.y1 - margin && y <= d.y2 + margin;
   }
 
   isBlocked(x, y) {
+    if (this.island) {
+      if (!this.landContains(x, y, -16)) return true;
+      return this.inPond(x, y, 8);
+    }
     return this.inPond(x, y, -8) && !this.onDock(x, y, -2);
   }
 
@@ -177,6 +327,7 @@ class World {
   }
 
   spotFree(x, y, ignoreHomestead) {
+    if (this.island) return this.islandSpotFree(x, y);
     if (x < 70 || y < 90 || x > this.w - 70 || y > this.h - 70) return false;
     if (this.inPond(x, y, 26) || this.onDock(x, y, 26)) return false;
     if (!ignoreHomestead && dist(x, y, this.homestead.x, this.homestead.y) < 235) return false;
@@ -191,6 +342,16 @@ class World {
     }
     for (const n of this.nodes) {
       if (dist(x, y, n.x, n.y) < 34) return false;
+    }
+    return true;
+  }
+
+  islandSpotFree(x, y) {
+    if (!this.landContains(x, y, -64)) return false;
+    if (this.pond && this.inPond(x, y, 30)) return false;
+    if (dist(x, y, this.travelPos.x, this.travelPos.y) < 110) return false;
+    for (const n of this.nodes) {
+      if (dist(x, y, n.x, n.y) < 38) return false;
     }
     return true;
   }
@@ -350,21 +511,24 @@ class World {
     }
   }
 
-  loadNodes(saved) {
+  loadNodes(saved, away = 0) {
     this.nodes = [];
+    const awaySec = Math.max(0, away || 0);
     for (const row of saved) {
       if (!Array.isArray(row) || row.length < 5) continue;
       const [type, x, y, alive, hp, respawn, seed] = row;
       if (!NODE_TYPES[type]) continue;
       const conf = NODE_TYPES[type];
+      const respawnLeft = Math.max(0, (respawn || 0) - awaySec);
+      const revived = !alive && respawnLeft <= 0;
       this.nodes.push({
         type,
         x,
         y,
-        hp: clamp(typeof hp === 'number' ? hp : conf.hp, 0, conf.hp),
+        hp: revived ? conf.hp : clamp(typeof hp === 'number' ? hp : conf.hp, 0, conf.hp),
         maxHp: conf.hp,
-        alive: !!alive,
-        respawn: Math.max(0, respawn || 0),
+        alive: !!alive || revived,
+        respawn: respawnLeft,
         shake: 0,
         seed: seed || 0,
       });
@@ -438,7 +602,7 @@ class World {
       }
     }
 
-    if (game.state.upgrades.campfire && this.rng.chance(dt * (game.state.upgrades.hearth ? 6 : 3))) {
+    if (this.campfirePos && game.state.upgrades.campfire && this.rng.chance(dt * (game.state.upgrades.hearth ? 6 : 3))) {
       game.spawnEmber(
         this.campfirePos.x + (Math.random() * (game.state.upgrades.hearth ? 26 : 16) - (game.state.upgrades.hearth ? 13 : 8)),
         this.campfirePos.y - 18
@@ -557,6 +721,11 @@ class World {
   /* ---------------- background ---------------- */
 
   drawBackground(ctx, game) {
+    if (this.island) {
+      this.drawIslandBackground(ctx, game);
+      return;
+    }
+
     ctx.fillStyle = game.grassPattern || '#78b061';
     ctx.fillRect(0, 0, this.w, this.h);
 
@@ -601,6 +770,142 @@ class World {
       ctx.fillStyle = g;
       ctx.fillRect(x, y, w, h);
     }
+  }
+
+  drawIslandBackground(ctx, game) {
+    const t = game.clock;
+    const { x: cx, y: cy } = this.center;
+    const rx = this.landRx;
+    const ry = this.landRy;
+
+    const sea = ctx.createLinearGradient(0, 0, 0, this.h);
+    sea.addColorStop(0, '#3b7c93');
+    sea.addColorStop(0.55, '#357289');
+    sea.addColorStop(1, '#285b70');
+    ctx.fillStyle = sea;
+    ctx.fillRect(0, 0, this.w, this.h);
+
+    // Long, lazy swells.
+    ctx.strokeStyle = 'rgba(178, 226, 235, 0.16)';
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 34; i++) {
+      const wy = (i * 53 + 17) % this.h;
+      const wx = ((i * 137 + t * 9) % (this.w + 220)) - 110;
+      ctx.beginPath();
+      ctx.moveTo(wx, wy);
+      ctx.quadraticCurveTo(wx + 18, wy - 3, wx + 36, wy);
+      ctx.quadraticCurveTo(wx + 52, wy + 2.5, wx + 68, wy);
+      ctx.stroke();
+    }
+
+    // Shallow water shelf, wet sand and beach.
+    ctx.fillStyle = 'rgba(126, 200, 206, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 6, rx + 96, ry + 96, 0, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(196, 184, 132, 0.85)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, rx + 54, ry + 54, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(222, 206, 152, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 2, rx + 34, ry + 34, 0, 0, TAU);
+    ctx.fill();
+
+    // Grass interior.
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
+    ctx.clip();
+    ctx.fillStyle = game.grassPattern || '#78b061';
+    ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+
+    for (const p of this.patches) {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, TAU);
+      ctx.fill();
+    }
+
+    if (this.pond) this.drawPond(ctx, t);
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(238, 250, 250, 0.34)';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx + 28, ry + 28, 0, 0, TAU);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(238, 250, 250, 0.16)';
+    ctx.lineWidth = 1.4;
+    const foam = (t * 0.06) % 1;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx + 40 + foam * 18, ry + 40 + foam * 18, 0, 0, TAU);
+    ctx.stroke();
+  }
+
+  drawBoat(ctx, t) {
+    const p = this.travelPos;
+    if (!p) return;
+    const bob = Math.sin(t * 1.7) * 1.6;
+    ctx.save();
+    ctx.translate(p.x, p.y + bob);
+
+    ctx.strokeStyle = 'rgba(220, 245, 248, 0.3)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 28, 6, 0, 0, TAU);
+    ctx.stroke();
+
+    ctx.fillStyle = '#6e472d';
+    ctx.beginPath();
+    ctx.moveTo(-26, -2);
+    ctx.quadraticCurveTo(-18, 12, 0, 12);
+    ctx.quadraticCurveTo(18, 12, 26, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#a9713f';
+    ctx.beginPath();
+    ctx.moveTo(-20, 0);
+    ctx.quadraticCurveTo(-14, 9, 0, 9);
+    ctx.quadraticCurveTo(14, 9, 20, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#5f4027';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-22, -1);
+    ctx.lineTo(-30, -9);
+    ctx.moveTo(22, -1);
+    ctx.lineTo(30, -9);
+    ctx.stroke();
+
+    ctx.fillStyle = '#7a5236';
+    ctx.beginPath();
+    ctx.arc(-4, 0, 1.7, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = '#8a6a3c';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(4, 0);
+    ctx.lineTo(4, -24);
+    ctx.stroke();
+
+    ctx.fillStyle = '#f2e6cf';
+    ctx.beginPath();
+    ctx.moveTo(5, -23);
+    ctx.lineTo(21, -14);
+    ctx.lineTo(5, -7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(150, 130, 90, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   drawPond(ctx, t) {

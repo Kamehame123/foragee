@@ -1,6 +1,6 @@
 # 🍃 Foragee
 
-A cozy foraging game that runs in the browser. Gather wood, stone, fiber, berries and mushrooms; craft a campfire, a backpack and a torch; sell surplus to the trader; till the garden and grow berries, pumpkins, carrots and corn; build a well, chicken coop and bee box; and fish the pond for trout. There is no fail state — the forest regrows and every day starts fresh.
+A cozy foraging game that runs in the browser. Gather wood, stone, fiber, berries and mushrooms; craft a campfire, a backpack and a torch; sell surplus to the trader; till the garden and grow berries, pumpkins, carrots and corn; build a well, chicken coop and bee box; fish the pond for trout; and charter new islands to explore. There is no fail state - the forest regrows and every day starts fresh.
 
 No build step, no dependencies, no assets. Pure HTML, CSS and canvas.
 
@@ -40,11 +40,25 @@ On a phone or tablet the game switches to a touch layout automatically: drag the
 4. **Craft.** A campfire unlocks cooking; a stone hearth widens the glow. A backpack and basket add inventory space, a torch or crystal lantern lights the night, and trail boots make you faster. Six new meals — pumpkin soup, cornbread, carrot cake, nut roast, fish stew and grilled trout — restore more energy than raw food.
 5. **Farm.** Till the four plots with the hoe, then interact with the tilled soil to choose a seed: fast carrots, tall corn, slow pumpkins or berries. A watering can, a garden well and rainy days all speed growth.
 6. **Build the homestead.** A chicken coop adds fresh eggs and a bee box adds honey every morning. Both pay out when you sleep and when the day rolls over.
-7. **Settle in.** The goal list in the top-left pays out coins as you hit milestones. Earning 400 coins is the long-term target.
+7. **Sail.** Interact with the rowboat by the pond dock to open the island charters. Buy an island with coins, then sail there. Every island has its own map, resource mix and a boat waiting to take you home or onward.
+8. **Settle in.** The goal list in the top-left pays out coins as you hit milestones. Earning 400 coins is the long-term target.
 
 Weather drifts between clear, cloudy, rain, fog and storms. Rain and storms help crops grow and speed up resource regrowth; storms bring heavier rain and the occasional flash of lightning. The HUD clock shows the current sky.
 
 Keep fishing bait in your bag to automatically land one extra fish whenever you finish a fishing spot. The pond occasionally yields a river trout, which sells well and cooks into grilled trout.
+
+## Islands
+
+Charters are permanent and only cost coins:
+
+| Island | Cost | What grows there |
+| --- | --- | --- |
+| Home Isle | — | Your homestead, garden, pond and trader |
+| Bramble Isle | 120 | Berries, hazelnuts, fiber and honey |
+| Amber Isle | 300 | Stone, iron, crystal and clay |
+| Mist Isle | 520 | Trout, reeds, nuts and crystal, around a hidden pond |
+
+Buy a charter from the rowboat at the pond dock, or from the boat on any island you have already reached. Your bag, tools, coins and upgrades travel with you. Each island remembers which nodes you harvested, and nodes regrow while you are away.
 
 ## Project layout
 
