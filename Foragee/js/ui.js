@@ -154,7 +154,7 @@ class UI {
     if (sig !== this.invSig) {
       this.invSig = sig;
       this.updateInv();
-      if (this.current === 'craft' || this.current === 'shop' || this.current === 'bag' || this.current === 'plant') {
+      if (this.current === 'craft' || this.current === 'shop' || this.current === 'bag' || this.current === 'plant' || this.current === 'almanac') {
         this.renderPanel();
       }
     }
@@ -247,6 +247,7 @@ class UI {
     else if (this.current === 'bag') this.renderBag();
     else if (this.current === 'shop') this.renderShop();
     else if (this.current === 'islands') this.renderIslands();
+    else if (this.current === 'almanac') this.renderAlmanac();
     else if (this.current === 'help') this.renderHelp();
     else if (this.current === 'pause') this.renderPause();
     else if (this.current === 'plant') this.renderPlantMenu();
@@ -519,6 +520,103 @@ class UI {
     );
   }
 
+  renderAlmanac() {
+    const g = this.game;
+    const s = g.state;
+    const inv = s.inv && typeof s.inv === 'object' ? s.inv : {};
+    const gathered = (s.stats && s.stats.gathered) || {};
+
+    /* ---- Items: everything you can hold, what it sells for, and what you carry ---- */
+    const totalItems = ITEM_ORDER.length;
+    const knownItems = ITEM_ORDER.filter(
+      (id) => (inv[id] || 0) > 0 || (gathered[id] || 0) > 0
+    ).length;
+    const itemRows = ITEM_ORDER.map((id) => {
+      const item = ITEMS[id];
+      const have = inv[id] || 0;
+      return `<div class="shop-row">
+        <span class="shop-icon">${item.icon}</span>
+        <div class="shop-main">
+          <div class="shop-name">${item.name}</div>
+          <div class="shop-desc">Sells for ${item.sell}🪙</div>
+        </div>
+        <span class="shop-price">${have > 0 ? `×${have}` : '—'}</span>
+      </div>`;
+    }).join('');
+
+    /* ---- Crops: seed count in the bag plus how long they take to grow ---- */
+    const cropRows = Object.entries(CROPS).map(([id, conf]) => {
+      const seeds = inv[conf.seed] || 0;
+      const grow = Math.round(g.cropGrowTime(id));
+      const seedName = ITEMS[conf.seed] ? ITEMS[conf.seed].name : conf.seed;
+      return `<div class="shop-row">
+        <span class="shop-icon">${conf.icon}</span>
+        <div class="shop-main">
+          <div class="shop-name">${conf.name}</div>
+          <div class="shop-desc">Ready in ~${grow}s · ${seedName} ×${seeds} in bag</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    /* ---- Recipes: everything you can make, flagged when its ingredients are on hand ---- */
+    const recipeRows = RECIPES.map((r) => {
+      const canMake = Object.entries(r.cost).every(([id, n]) => (inv[id] || 0) >= n);
+      return `<div class="shop-row">
+        <span class="shop-icon">${r.icon}</span>
+        <div class="shop-main">
+          <div class="shop-name">${r.name}${canMake ? ' <span class="bag-tag">ready</span>' : ''}</div>
+          <div class="shop-desc">${canMake ? 'All ingredients in your bag.' : 'Gather more ingredients.'}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    /* ---- Islands: cost and charting status, with the current one marked ---- */
+    const unlocked = s.islands && Array.isArray(s.islands.unlocked) ? s.islands.unlocked : [];
+    const current = s.islands ? s.islands.current : null;
+    const islandRows = ISLAND_ORDER.map((id) => {
+      const conf = ISLANDS[id];
+      const charted = id === 'home' || unlocked.includes(id);
+      const here = current === id;
+      let status = 'Uncharted';
+      if (id === 'home') status = 'Home';
+      else if (charted) status = 'Charted';
+      const price = charted
+        ? '<span class="shop-price owned-tag">Charted</span>'
+        : `<span class="shop-price">${conf.cost}🪙</span>`;
+      return `<div class="shop-row">
+        <span class="shop-icon">${conf.icon}</span>
+        <div class="shop-main">
+          <div class="shop-name">${conf.name}${here ? ' <span class="bag-tag">you are here</span>' : ''}</div>
+          <div class="shop-desc">${conf.blurb}</div>
+        </div>
+        ${price}
+        <span class="bag-tag">${status}</span>
+      </div>`;
+    }).join('');
+
+    this.setPanel(
+      'Field guide',
+      `A pocket almanac of the homestead · ${knownItems}/${totalItems} item kinds discovered.`,
+      `<div class="shop-grid">
+        <div>
+          <h3 class="section-title">Items · ${knownItems}/${totalItems} found</h3>
+          <p class="panel-sub">Icon, name, sell price, and how many you carry. — means none.</p>
+          ${itemRows}
+        </div>
+        <div>
+          <h3 class="section-title">Crops</h3>
+          ${cropRows}
+          <h3 class="section-title" style="margin-top:14px">Recipes</h3>
+          ${recipeRows}
+        </div>
+        <div>
+          <h3 class="section-title">Islands</h3>
+          ${islandRows}
+        </div>
+      </div>`
+    );
+  }
+
   renderHelp() {
     this.setPanel(
       'How to play',
@@ -566,6 +664,7 @@ class UI {
             <li>Standing by a lit campfire restores energy quickly.</li>
             <li>Night is dark without a torch, but fireflies are pretty.</li>
             <li>Charter islands for resources your homestead lacks, then sail back with a full bag.</li>
+            <li>Open the Field guide from the pause menu to look up every item, crop, recipe and island.</li>
             <li>Your game saves automatically in this browser.</li>
           </ul>
         </div>
@@ -585,6 +684,7 @@ class UI {
         <button class="primary" data-action="resume">Resume</button>
         <button class="ghost" data-action="open" data-panel="craft">Crafting</button>
         <button class="ghost" data-action="open" data-panel="bag">Bag</button>
+        <button class="ghost" data-action="open" data-panel="almanac">Field guide</button>
         <button class="ghost" data-action="open" data-panel="help">How to play</button>
         <button class="ghost" data-action="mute">Sound: ${Sound.muted ? 'Off' : 'On'}</button>
         <button class="ghost" data-action="reset">New game</button>

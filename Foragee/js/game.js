@@ -23,6 +23,7 @@ class Game {
     this.shakeY = 0;
     this.gatherNode = null;
     this.gatherCd = 0;
+    this.campfireCd = 0; // real-time rest cooldown; intentionally not saved
     this.interactHeld = false;
     this.target = null;
     this.started = false;
@@ -306,6 +307,7 @@ class Game {
     this.texts.length = 0;
     this.gatherNode = null;
     this.interactHeld = false;
+    this.campfireCd = 0;
     this.target = null;
     this.started = false;
     this.wasNight = this.isNight();
@@ -773,6 +775,9 @@ class Game {
       for (const p of this.world.plots) consider('plot', p.x, p.y, 66, p);
       consider('tent', this.world.tentPos.x, this.world.tentPos.y, 80);
       consider('stall', this.world.stallPos.x, this.world.stallPos.y, 88);
+      if (this.state.upgrades.campfire && this.world.campfirePos) {
+        consider('campfire', this.world.campfirePos.x, this.world.campfirePos.y, 84);
+      }
     }
     if (this.world.travelPos) {
       consider('travel', this.world.travelPos.x, this.world.travelPos.y, 100);
@@ -815,6 +820,11 @@ class Game {
     if (t.kind === 'travel') return { text: this.world.travelLabel || 'Sail to the islands' };
     if (t.kind === 'tent') return { text: 'Sleep until morning' };
     if (t.kind === 'stall') return { text: 'Trade with the trader' };
+    if (t.kind === 'campfire') {
+      if (this.state.energy >= this.state.maxEnergy) return { text: 'Campfire — already feeling rested', muted: true };
+      if (this.campfireCd > 0) return { text: 'Campfire — catch your breath first', muted: true };
+      return { text: 'Rest by the campfire' };
+    }
     return null;
   }
 
@@ -845,6 +855,10 @@ class Game {
     if (t.kind === 'stall') {
       Sound.click();
       this.ui.openPanel('shop');
+      return;
+    }
+    if (t.kind === 'campfire') {
+      this.restAtCampfire();
     }
   }
 
@@ -952,6 +966,42 @@ class Game {
     this.ui.toast(`Day ${s.day}. You feel rested and ready.`, 'good');
     this.dailyHomestead();
     this.spawnSparkle(this.player.x, this.player.y - 30, 10);
+    this.save();
+  }
+
+  restAtCampfire() {
+    const s = this.state;
+    if (this.campfireCd > 0) {
+      Sound.error();
+      this.ui.toast('The fire is still going — give it a moment.', 'warn');
+      return;
+    }
+    if (s.energy >= s.maxEnergy) {
+      this.ui.toast('You already feel fully rested.');
+      return;
+    }
+
+    const wasNight = this.isNight();
+    const restored = Math.min(40, s.maxEnergy - s.energy);
+    s.energy = Math.min(s.maxEnergy, s.energy + 40);
+
+    // About 40 in-game minutes (same hour-based clock advanceTime uses),
+    // but clamped so a rest never rolls the day over or runs dailyHomestead.
+    s.time = Math.min(s.time + 40 / 60, 23.999);
+
+    this.campfireCd = 20; // real seconds, kept on the instance rather than the save
+
+    if (this.world.campfirePos) {
+      this.spawnBurst(this.world.campfirePos.x, this.world.campfirePos.y - 14, ['#ff7a2f', '#ffb347', '#ffe08a'], 14);
+      this.spawnSparkle(this.world.campfirePos.x, this.world.campfirePos.y - 24, 10);
+    }
+    Sound.sleep();
+
+    if (wasNight) {
+      this.ui.toast(`You warm your hands by the fire. +${Math.round(restored)} energy under the stars.`, 'good');
+    } else {
+      this.ui.toast(`You rest by the campfire. +${Math.round(restored)} energy.`, 'good');
+    }
     this.save();
   }
 
@@ -1305,6 +1355,7 @@ class Game {
       this.shakeY = 0;
     }
     if (this.sleepFade > 0) this.sleepFade = Math.max(0, this.sleepFade - dt * 1.15);
+    if (this.campfireCd > 0) this.campfireCd = Math.max(0, this.campfireCd - dt);
 
     const paused = !this.started || !!this.ui.current;
 
@@ -1495,6 +1546,10 @@ class Game {
       y = t.ref.y;
       rx = 36;
     } else if (t.kind === 'travel') {
+      x = t.x;
+      y = t.y;
+      rx = 34;
+    } else if (t.kind === 'campfire') {
       x = t.x;
       y = t.y;
       rx = 34;

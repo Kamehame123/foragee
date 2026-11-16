@@ -37,9 +37,14 @@ class World {
     ];
 
     this.rng = makeRng(saved && saved.seed ? saved.seed : 12345);
+    // Ambient life uses its own RNG stream so node generation stays deterministic and untouched.
+    this.ambientRng = makeRng(((saved && saved.seed ? saved.seed : 12345) + 991) >>> 0);
     this.nodes = [];
     this.decor = [];
     this.ambient = [];
+    this.butterflies = [];
+    this.fireflies = [];
+    this.birds = [];
     this.patches = [];
     this.rabbits = [];
     this.chickens = [];
@@ -48,6 +53,9 @@ class World {
     this.generatePatches();
     this.generateDecor();
     this.generateAmbient();
+    this.generateButterflies();
+    this.generateFireflies();
+    this.generateBirds();
     this.generateRabbits();
     this.generateChickens();
 
@@ -97,9 +105,13 @@ class World {
     this.travelLabel = 'Sail home or onward';
 
     this.rng = makeRng((saved && saved.seed ? saved.seed : 12345) + conf.seed);
+    this.ambientRng = makeRng(((saved && saved.seed ? saved.seed : 12345) + conf.seed + 991) >>> 0);
     this.nodes = [];
     this.decor = [];
     this.ambient = [];
+    this.butterflies = [];
+    this.fireflies = [];
+    this.birds = [];
     this.patches = [];
     this.rabbits = [];
     this.chickens = [];
@@ -109,6 +121,9 @@ class World {
     this.generateIslandPatches();
     this.generateIslandDecor();
     this.generateAmbient();
+    this.generateButterflies();
+    this.generateFireflies();
+    this.generateBirds();
 
     if (saved && Array.isArray(saved.nodes) && saved.nodes.length) {
       this.loadNodes(saved.nodes, saved.away);
@@ -278,6 +293,82 @@ class World {
         y: this.rng.range(100, this.h - 100),
         seed: this.rng.next() * 10,
         color: this.rng.pick(colors),
+      });
+    }
+  }
+
+  /** Butterflies hover around flower decor (mainland) or over island grass. */
+  generateButterflies() {
+    const rng = this.ambientRng;
+    const colors = ['#ffd166', '#e8a0bf', '#c8b6ff', '#f2e6cf', '#9fd8c0', '#f4a259'];
+    const flowers = this.decor.filter((d) => d.type === 'flower');
+    const count = Math.min(14, 6 + Math.floor(flowers.length / 6));
+    for (let i = 0; i < count; i++) {
+      let x;
+      let y;
+      if (flowers.length) {
+        const f = flowers[rng.int(0, flowers.length - 1)];
+        x = f.x + rng.range(-26, 26);
+        y = f.y + rng.range(-24, 24);
+      } else {
+        x = rng.range(100, this.w - 100);
+        y = rng.range(100, this.h - 100);
+      }
+      if (this.island) {
+        x = clamp(x, this.center.x - this.landRx * 0.82, this.center.x + this.landRx * 0.82);
+        y = clamp(y, this.center.y - this.landRy * 0.82, this.center.y + this.landRy * 0.82);
+      } else {
+        x = clamp(x, 70, this.w - 70);
+        y = clamp(y, 90, this.h - 70);
+      }
+      this.butterflies.push({
+        homeX: x,
+        homeY: y,
+        seed: rng.next() * 100,
+        color: rng.pick(colors),
+        sp: rng.range(0.7, 1.15),
+      });
+    }
+  }
+
+  /** Fireflies gather around the homestead on the mainland and island clearings at night. */
+  generateFireflies() {
+    const rng = this.ambientRng;
+    const hx = this.homestead ? this.homestead.x : this.center.x;
+    const hy = this.homestead ? this.homestead.y : this.center.y;
+    for (let i = 0; i < 20; i++) {
+      const a = rng.next() * TAU;
+      const r = 60 + Math.sqrt(rng.next()) * (this.island ? 210 : 300);
+      let x = hx + Math.cos(a) * r;
+      let y = hy + Math.sin(a) * r;
+      if (this.island) {
+        x = clamp(x, this.center.x - this.landRx * 0.9, this.center.x + this.landRx * 0.9);
+        y = clamp(y, this.center.y - this.landRy * 0.9, this.center.y + this.landRy * 0.9);
+      } else {
+        x = clamp(x, 60, this.w - 60);
+        y = clamp(y, 80, this.h - 60);
+      }
+      this.fireflies.push({
+        x,
+        y,
+        seed: rng.next() * 100,
+        phase: rng.next() * TAU,
+        sp: rng.range(0.5, 1.1),
+      });
+    }
+  }
+
+  /** A few distant gull silhouettes drift over the sea on island maps. */
+  generateBirds() {
+    if (!this.island) return;
+    const rng = this.ambientRng;
+    for (let i = 0; i < 3; i++) {
+      this.birds.push({
+        x: rng.range(0, this.w),
+        y: rng.range(60, this.h * 0.2),
+        seed: rng.next() * 100,
+        sp: rng.range(8, 17) * (rng.chance(0.5) ? 1 : -1),
+        s: rng.range(0.75, 1.25),
       });
     }
   }
@@ -857,6 +948,18 @@ class World {
     ctx.beginPath();
     ctx.ellipse(0, 8, 28, 6, 0, 0, TAU);
     ctx.stroke();
+
+    // A gentle wake rippling out behind the moored boat.
+    ctx.strokeStyle = 'rgba(220, 245, 248, 0.3)';
+    ctx.lineWidth = 1.1;
+    for (let i = 0; i < 3; i++) {
+      const phase = (t * 0.32 + i / 3) % 1;
+      ctx.globalAlpha = 0.45 * (1 - phase);
+      ctx.beginPath();
+      ctx.ellipse(-2, 12, 12 + phase * 28, 4 + phase * 9, 0, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
 
     ctx.fillStyle = '#6e472d';
     ctx.beginPath();
@@ -2748,6 +2851,19 @@ class World {
         ctx.lineTo(13, -27);
         ctx.stroke();
       }
+
+      // Lazy smoke wisps curling up from a lit fire.
+      const puffs = hearth ? 5 : 4;
+      for (let i = 0; i < puffs; i++) {
+        const life = (t * (0.17 + i * 0.013) + i / puffs) % 1;
+        const sx = Math.sin(t * 1.1 + i * 2.3) * (4 + life * 10);
+        const sy = -22 - life * (hearth ? 64 : 48);
+        const sr = 3.2 + life * 6.5;
+        ctx.fillStyle = `rgba(226, 228, 222, ${0.17 * (1 - life)})`;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, sr, sr * 0.72, 0.2, 0, TAU);
+        ctx.fill();
+      }
     } else {
       ctx.fillStyle = 'rgba(60, 62, 58, 0.5)';
       ellipse(ctx, 0, -2, 8, 3.4);
@@ -3124,6 +3240,74 @@ class World {
     ctx.restore();
   }
 
+  /** Small fluttering butterflies near flowers / over grass. All motion derives from the clock. */
+  drawButterflies(ctx, t) {
+    const list = this.butterflies;
+    if (!list || !list.length) return;
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      const px = b.homeX + Math.sin(t * 0.7 * b.sp + b.seed) * 26 + Math.sin(t * 1.9 + b.seed * 2) * 6;
+      const py = b.homeY + Math.cos(t * 0.9 * b.sp + b.seed * 1.7) * 20 + Math.sin(t * 2.3 + b.seed) * 4;
+      const flap = Math.abs(Math.sin(t * 12 + b.seed));
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.ellipse(px - 2.6, py, 2.8, 1.3 + flap * 2.2, -0.4, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(px + 2.6, py, 2.8, 1.3 + flap * 2.2, 0.4, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(60, 54, 42, 0.7)';
+      ellipse(ctx, px, py, 0.9, 2);
+    }
+  }
+
+  /** Soft glowing motes around the homestead / island clearings at night. */
+  drawFireflies(ctx, t) {
+    const list = this.fireflies;
+    if (!list || !list.length) return;
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      const px = f.x + Math.sin(t * 0.6 * f.sp + f.phase) * 22 + Math.cos(t * 1.3 + f.phase) * 8;
+      const py = f.y + Math.cos(t * 0.75 * f.sp + f.phase) * 18 + Math.sin(t * 1.7 + f.phase) * 6;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + f.phase * 2);
+      ctx.fillStyle = `rgba(255, 238, 150, ${0.05 + pulse * 0.07})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 5 + pulse * 3, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = `rgba(255, 248, 190, ${0.45 + pulse * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  /** Distant gull silhouettes gliding over the sea on island maps. */
+  drawGulls(ctx, t) {
+    const list = this.birds;
+    if (!list || !list.length) return;
+    const span = this.w + 200;
+    ctx.strokeStyle = 'rgba(38, 66, 74, 0.5)';
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      const bx = (((b.x + t * b.sp) % span) + span) % span - 100;
+      const by = b.y + Math.sin(t * 0.5 + b.seed) * 10;
+      const flap = Math.sin(t * 3.2 + b.seed) * 2.6;
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.scale(b.s, b.s);
+      ctx.globalAlpha = 0.65;
+      ctx.beginPath();
+      ctx.moveTo(-11, 0);
+      ctx.quadraticCurveTo(-5, -4 - flap, 0, 0);
+      ctx.quadraticCurveTo(5, -4 - flap, 11, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   drawAmbient(ctx, t, night) {
     for (const a of this.ambient) {
       const px = a.x + Math.sin(t * 0.4 + a.seed * 5) * 46;
@@ -3163,5 +3347,9 @@ class World {
         ctx.stroke();
       }
     }
+
+    if (night) this.drawFireflies(ctx, t);
+    else this.drawButterflies(ctx, t);
+    if (this.island) this.drawGulls(ctx, t);
   }
 }

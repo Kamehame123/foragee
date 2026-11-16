@@ -74,6 +74,20 @@ const ITEMS = {
     desc: 'A plump garden pumpkin. +18 energy.',
     food: 18,
   },
+  strawberry: {
+    name: 'Strawberries',
+    icon: '🍓',
+    sell: 9,
+    desc: 'Juicy red berries. +12 energy.',
+    food: 12,
+  },
+  potato: {
+    name: 'Potato',
+    icon: '🥔',
+    sell: 8,
+    desc: 'A hearty garden tuber. +14 energy raw.',
+    food: 14,
+  },
   carrot: {
     name: 'Carrot',
     icon: '🥕',
@@ -150,6 +164,18 @@ const ITEMS = {
     icon: '🌽',
     sell: 6,
     desc: 'Tall summer corn, slow to ripen.',
+  },
+  strawberrySeed: {
+    name: 'Strawberry Seeds',
+    icon: '🍓',
+    sell: 5,
+    desc: 'Plant in tilled soil. Quick and generous.',
+  },
+  potatoSeed: {
+    name: 'Potato Seeds',
+    icon: '🥔',
+    sell: 6,
+    desc: 'Plant in tilled soil. Slow, but filling.',
   },
   jam: {
     name: 'Berry Jam',
@@ -228,6 +254,20 @@ const ITEMS = {
     desc: 'Trout with herbs and a little honey. +58 energy.',
     food: 58,
   },
+  strawberryJam: {
+    name: 'Strawberry Jam',
+    icon: '🍓',
+    sell: 26,
+    desc: 'Sweet and restoring. +40 energy.',
+    food: 40,
+  },
+  potatoStew: {
+    name: 'Potato Stew',
+    icon: '🍲',
+    sell: 38,
+    desc: 'A hearty, warming bowl. +55 energy.',
+    food: 55,
+  },
   bait: {
     name: 'Fishing Bait',
     icon: '🪱',
@@ -238,10 +278,10 @@ const ITEMS = {
 
 const ITEM_ORDER = [
   'wood', 'stone', 'fiber', 'clay', 'reed',
-  'berry', 'mushroom', 'apple', 'carrot', 'corn', 'hazelnut', 'herb', 'honey', 'egg', 'fish', 'trout', 'pumpkin',
+  'berry', 'mushroom', 'apple', 'carrot', 'corn', 'hazelnut', 'herb', 'honey', 'egg', 'fish', 'trout', 'pumpkin', 'strawberry', 'potato',
   'iron', 'crystal',
-  'seed', 'pumpkinSeed', 'carrotSeed', 'cornSeed', 'bait',
-  'jam', 'stew', 'tea', 'pie', 'grilledFish', 'pumpkinSoup', 'cornbread', 'carrotCake', 'nutRoast', 'fishStew', 'grilledTrout',
+  'seed', 'pumpkinSeed', 'carrotSeed', 'cornSeed', 'strawberrySeed', 'potatoSeed', 'bait',
+  'jam', 'stew', 'tea', 'pie', 'grilledFish', 'pumpkinSoup', 'cornbread', 'carrotCake', 'nutRoast', 'fishStew', 'grilledTrout', 'strawberryJam', 'potatoStew',
 ];
 
 const TOOL_META = {
@@ -299,6 +339,28 @@ const CROPS = {
     max: 2,
     seedChance: 0.45,
     color: '#f2c66a',
+  },
+  strawberry: {
+    name: 'Strawberries',
+    icon: '🍓',
+    seed: 'strawberrySeed',
+    grow: 38,
+    yield: 'strawberry',
+    min: 2,
+    max: 4,
+    seedChance: 0.4,
+    color: '#e8506b',
+  },
+  potato: {
+    name: 'Potatoes',
+    icon: '🥔',
+    seed: 'potatoSeed',
+    grow: 58,
+    yield: 'potato',
+    min: 2,
+    max: 3,
+    seedChance: 0.4,
+    color: '#c9975b',
   },
 };
 
@@ -738,6 +800,28 @@ const RECIPES = [
     consumable: true,
     verb: 'Cook',
   },
+  {
+    id: 'strawberryJam',
+    group: 'cooking',
+    name: 'Strawberry Jam',
+    icon: '🍓',
+    desc: 'Berries and strawberries simmered sweet. +40 energy when eaten.',
+    cost: { strawberry: 4, berry: 2, wood: 1 },
+    needs: 'campfire',
+    consumable: true,
+    verb: 'Cook',
+  },
+  {
+    id: 'potatoStew',
+    group: 'cooking',
+    name: 'Potato Stew',
+    icon: '🍲',
+    desc: 'Potatoes, carrot and herbs in a hearty pot. +55 energy when eaten.',
+    cost: { potato: 2, carrot: 1, herb: 1, wood: 1 },
+    needs: 'campfire',
+    consumable: true,
+    verb: 'Cook',
+  },
 ];
 
 const SHOP_ITEMS = [
@@ -830,6 +914,22 @@ const SHOP_ITEMS = [
     icon: '🌽',
     price: 9,
     desc: 'Tall summer corn. Ready in about 66 seconds.',
+  },
+  {
+    id: 'strawberrySeed',
+    kind: 'item',
+    name: 'Strawberry Seeds',
+    icon: '🍓',
+    price: 7,
+    desc: 'Plant in a tilled plot. Quick and generous. Ready in about 38 seconds.',
+  },
+  {
+    id: 'potatoSeed',
+    kind: 'item',
+    name: 'Potato Seeds',
+    icon: '🥔',
+    price: 9,
+    desc: 'Plant in a tilled plot. Hearty tubers. Ready in about 58 seconds.',
   },
   {
     id: 'bait',
@@ -969,6 +1069,20 @@ const QUESTS = [
     check: (s) => (s.stats.gathered.corn || 0) >= 1,
   },
   {
+    id: 'strawberry',
+    icon: '🍓',
+    title: 'Harvest some strawberries',
+    reward: 30,
+    check: (s) => (s.stats.gathered.strawberry || 0) >= 1,
+  },
+  {
+    id: 'potato',
+    icon: '🥔',
+    title: 'Harvest a potato',
+    reward: 30,
+    check: (s) => (s.stats.gathered.potato || 0) >= 1,
+  },
+  {
     id: 'trout',
     icon: '🐠',
     title: 'Catch a river trout',
@@ -1082,7 +1196,7 @@ const WEATHERS = {
  * Extra islands you can charter from the pond dock.
  * Each one is its own little map with a different resource mix.
  */
-const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist'];
+const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist', 'orchard', 'fern'];
 
 const ISLANDS = {
   home: {
@@ -1146,5 +1260,39 @@ const ISLANDS = {
       ['herb', 12], ['crystal', 6], ['tree', 16], ['fiber', 10],
     ],
     pondNodes: 2,
+  },
+  orchard: {
+    id: 'orchard',
+    name: 'Orchard Isle',
+    icon: '🍎',
+    cost: 700,
+    blurb: 'Sunlit rows of fruit and nut trees, with wildflowers and hives between them.',
+    resources: 'Apples · nuts · honey · berries · fiber · herbs',
+    w: 1720,
+    h: 1340,
+    rx: 570,
+    ry: 440,
+    seed: 6154,
+    nodes: [
+      ['appleTree', 16], ['nutTree', 12], ['hive', 6], ['fiber', 20],
+      ['bush', 14], ['herb', 12],
+    ],
+  },
+  fern: {
+    id: 'fern',
+    name: 'Fern Isle',
+    icon: '🌿',
+    cost: 900,
+    blurb: 'A damp, shaded isle where rare herbs, mushrooms and reeds thrive among clay and crystal.',
+    resources: 'Herbs · mushrooms · reeds · clay · crystal',
+    w: 1760,
+    h: 1380,
+    rx: 585,
+    ry: 455,
+    seed: 8426,
+    nodes: [
+      ['herb', 22], ['mush', 18], ['reed', 16], ['clay', 12],
+      ['crystal', 8], ['fiber', 10], ['tree', 10],
+    ],
   },
 };
