@@ -26,6 +26,7 @@ Progress is saved automatically to `localStorage` under `foragee-save-v1`.
 | Crafting panel | `C` |
 | Bag | `I` |
 | Menu / close panel | `Esc` |
+| Island charters | `N` |
 | Mute | `M` |
 
 Click food chips in the bottom bar (or the Eat buttons in the bag) to eat a specific item.
@@ -56,6 +57,7 @@ A strip of round buttons on the right edge opens a set of optional extras. Each 
 | Tool | Key | What it does |
 | --- | --- | --- |
 | Minimap | `V` | Live overhead map of the current island with resource nodes, water, buildings and the player |
+| Island charters | `N` | Buy and sail from anywhere, with a "next stop" savings tracker |
 | Achievements | `A` | 24 milestone badges that pop up as you reach them |
 | Daily tasks | `T` | Three small goals each in-game day; rewards are paid automatically |
 | Field journal | `J` | A short diary of days, voyages, new tools, buildings and gathering milestones |
@@ -86,7 +88,7 @@ Charters are permanent and only cost coins:
 | Moss Isle | 1750 | Mushrooms, herbs, wood, fiber, stone and crystal |
 | Ember Isle | 2100 | Iron, stone, crystal, clay and mushrooms, with a warm spring |
 
-Buy a charter from the rowboat at the pond dock, or from the boat on any island you have already reached. Your bag, tools, coins and upgrades travel with you. Each island remembers which nodes you harvested, and nodes regrow while you are away.
+Buy a charter from the rowboat at the pond dock, from the boat on any island you have already reached, or press `N` anywhere to open the charter panel. Your bag, tools, coins and upgrades travel with you. Each island remembers which nodes you harvested, and nodes regrow while you are away.
 
 ## Project layout
 

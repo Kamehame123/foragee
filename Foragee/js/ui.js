@@ -518,6 +518,28 @@ class UI {
   renderIslands() {
     const g = this.game;
     const s = g.state;
+    const charted = ISLAND_ORDER.filter((id) => id === 'home' || s.islands.unlocked.includes(id));
+    const uncharted = ISLAND_ORDER.filter((id) => id !== 'home' && !s.islands.unlocked.includes(id));
+    const nextId = uncharted[0];
+
+    let nextCard = '';
+    if (nextId) {
+      const next = ISLANDS[nextId];
+      const short = Math.max(0, next.cost - s.coins);
+      const pct = Math.min(100, Math.round((s.coins / next.cost) * 100));
+      nextCard = `<div class="shop-row" style="border:1px solid rgba(255,209,102,.25);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+        <span class="shop-icon">${next.icon}</span>
+        <div class="shop-main">
+          <div class="shop-name">Next stop · ${next.name} <span class="bag-tag">${next.cost}🪙</span></div>
+          <div class="shop-desc">${next.resources || next.blurb}</div>
+          <div class="cap-bar" style="margin-top:6px"><i style="width:${pct}%"></i></div>
+          <div class="shop-desc" style="opacity:.8">${short > 0 ? `Save ${short} more coins to chart it.` : 'You can afford this charter now.'}</div>
+        </div>
+      </div>`;
+    } else {
+      nextCard = `<p class="panel-sub" style="color:var(--accent)">Every island is charted. The whole archipelago is yours.</p>`;
+    }
+
     const rows = ISLAND_ORDER.map((id) => {
       const conf = ISLANDS[id];
       const owned = id === 'home' || s.islands.unlocked.includes(id);
@@ -541,10 +563,11 @@ class UI {
 
     this.setPanel(
       'Island charters',
-      `Coins in hand: <b style="color:var(--accent)">${s.coins}🪙</b> · Buy a charter, then sail from any dock or island boat.`,
+      `Coins in hand: <b style="color:var(--accent)">${s.coins}🪙</b> · ${charted.length}/${ISLAND_ORDER.length} islands charted. Buy a charter, then sail from any dock or island boat.`,
       `<div class="shop-grid">
         <div>
           <h3 class="section-title">Islands</h3>
+          ${nextCard}
           ${rows}
         </div>
         <div>
@@ -552,6 +575,7 @@ class UI {
           <p class="panel-sub">Each island is its own little map with a different mix of forage. Your bag, tools and coins travel with you.</p>
           <p class="panel-sub">The rowboat on every shore brings you back. Nodes regrow while you are away.</p>
           <p class="panel-sub">Charters are permanent, and every island comes with a free return trip.</p>
+          <p class="panel-sub">Press <b>N</b> anywhere to open this panel without walking to a dock.</p>
         </div>
       </div>`
     );
