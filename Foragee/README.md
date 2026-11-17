@@ -83,6 +83,8 @@ Charters are permanent and only cost coins:
 | Fern Isle | 900 | Rare herbs, mushrooms, reeds, clay and crystal |
 | Glass Isle | 1150 | Crystal, clay, stone, mushrooms and iron |
 | Tidepool Isle | 1400 | Reeds, clay, fiber, mushrooms, apples, and a tidal pond |
+| Moss Isle | 1750 | Mushrooms, herbs, wood, fiber, stone and crystal |
+| Ember Isle | 2100 | Iron, stone, crystal, clay and mushrooms, with a warm spring |
 
 Buy a charter from the rowboat at the pond dock, or from the boat on any island you have already reached. Your bag, tools, coins and upgrades travel with you. Each island remembers which nodes you harvested, and nodes regrow while you are away.
 

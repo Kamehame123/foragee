@@ -1266,6 +1266,27 @@ const QUESTS = [
     reward: 150,
     check: (s) => s.islands && s.islands.unlocked && s.islands.unlocked.length >= ISLAND_ORDER.length,
   },
+  {
+    id: 'isles4',
+    icon: '⛵',
+    title: 'Chart four islands',
+    reward: 100,
+    check: (s) => s.islands && s.islands.unlocked && s.islands.unlocked.length >= 4,
+  },
+  {
+    id: 'gardener',
+    icon: '🌻',
+    title: 'Harvest 25 crops',
+    reward: 80,
+    check: (s) => (s.stats.harvested || 0) >= 25,
+  },
+  {
+    id: 'day15',
+    icon: '🌙',
+    title: 'Reach day 15',
+    reward: 70,
+    check: (s) => s.day >= 15,
+  },
 ];
 
 const WEATHERS = {
@@ -1310,7 +1331,7 @@ const WEATHERS = {
  * Extra islands you can charter from the pond dock.
  * Each one is its own little map with a different resource mix.
  */
-const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist', 'orchard', 'fern', 'glass', 'tide'];
+const ISLAND_ORDER = ['home', 'bramble', 'amber', 'mist', 'orchard', 'fern', 'glass', 'tide', 'moss', 'ember'];
 
 const ISLANDS = {
   home: {
@@ -1444,5 +1465,41 @@ const ISLANDS = {
     ],
     pond: { dx: -40, dy: 90, rx: 170, ry: 105 },
     pondNodes: 1,
+  },
+  moss: {
+    id: 'moss',
+    name: 'Moss Isle',
+    icon: '🌿',
+    cost: 1750,
+    blurb: 'A hushed, rain-fed island where the trees wear moss and mushrooms grow in rings.',
+    resources: 'Mushrooms · herbs · wood · fiber · stone · crystal',
+    w: 1780,
+    h: 1420,
+    rx: 580,
+    ry: 460,
+    seed: 6101,
+    nodes: [
+      ['mush', 26], ['herb', 20], ['tree', 20], ['fiber', 16],
+      ['rock', 14], ['crystal', 6], ['nutTree', 8], ['bush', 10],
+    ],
+  },
+  ember: {
+    id: 'ember',
+    name: 'Ember Isle',
+    icon: '🔥',
+    cost: 2100,
+    blurb: 'Warm stone and red clay, with a hidden spring that steams at dawn.',
+    resources: 'Iron · stone · crystal · clay · mushrooms · wood',
+    w: 1960,
+    h: 1540,
+    rx: 640,
+    ry: 500,
+    seed: 6907,
+    nodes: [
+      ['ore', 16], ['rock', 24], ['crystal', 12], ['clay', 14],
+      ['mush', 10], ['tree', 10], ['herb', 8], ['fiber', 10],
+    ],
+    pond: { dx: 30, dy: -70, rx: 150, ry: 95 },
+    pondNodes: 2,
   },
 };
