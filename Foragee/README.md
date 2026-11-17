@@ -49,6 +49,26 @@ Keep fishing bait in your bag to automatically land one extra fish whenever you 
 
 Open the **Field guide** from the pause menu for a pocket almanac of every item, crop, recipe and island, including what you have discovered so far.
 
+## Add-on tools
+
+A strip of round buttons on the right edge opens a set of optional extras. Each one is a self-contained file in `js/modules/`, keeps its own small `localStorage` key, and can be ignored without affecting the main game.
+
+| Tool | Key | What it does |
+| --- | --- | --- |
+| Minimap | `V` | Live overhead map of the current island with resource nodes, water, buildings and the player |
+| Achievements | `A` | 24 milestone badges that pop up as you reach them |
+| Daily tasks | `T` | Three small goals each in-game day; rewards are paid automatically |
+| Field journal | `J` | A short diary of days, voyages, new tools, buildings and gathering milestones |
+| Photo mode | `P` | Saves a framed PNG snapshot of the current scene |
+| Save manager | `B` | Export/import a save file plus three manual backup slots |
+| Weather glass | `L` | Six-day weather outlook with farming advice |
+| Traveller | `Q` | A visitor every other day who buys and sells one lot of goods |
+| Companion | `Y` | A duck or cat that follows you around; rename it and choose its species |
+| Weather effects | `O` | Toggles rain streaks, fog banks, drifting leaves and storm flashes |
+| Soundtrack | `U` | Soft generated ambient music with a volume slider |
+
+The night sky gets a starfield, moon and the occasional shooting star on its own. All module state lives under separate `foragee-*-v1` keys, so the main save is never touched.
+
 ## Islands
 
 Charters are permanent and only cost coins:
@@ -78,7 +98,10 @@ Foragee/
     ├── world.js      Procedural world, resource nodes, structures, rendering
     ├── player.js     Movement and hand-drawn character
     ├── ui.js         HUD, inventory bar, panels, toasts, start screen
-    └── game.js       Loop, state, saving, interactions, lighting
+    ├── game.js       Loop, state, saving, interactions, lighting
+    └── modules/      Optional add-ons (minimap, badges, journal, music…)
+        ├── base.js   Shared tool strip, panels, popups and storage helper
+        └── *.js      One file per add-on, loaded after game.js
 ```
 
 Tuning lives at the top of `js/game.js` (`DAY_LENGTH`, `BASE_CAPACITY`, `BASKET_BONUS`), in `js/items.js` (yields, costs, prices, crops, weather, goals) and in `js/world.js` (world layout and spawning).
